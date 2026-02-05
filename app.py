@@ -23,7 +23,7 @@ BORDER = "rgba(255,255,255,0.08)"
 
 st.set_page_config(
     page_title=f"{APP_NAME} — Калькулятор окупаемости",
-    page_icon="🧼",
+    page_icon="assets/favicon.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -46,7 +46,7 @@ section[data-testid="stSidebar"] * {{
     color: {TEXT};
 }}
 .block-container {{
-    padding-top: 1.2rem;
+    padding-top: 2.5rem;
 }}
 div[data-testid="stMetric"] {{
     background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
@@ -370,14 +370,13 @@ with col_dl:
 # ══════════════════════════════════════════════════════════════
 st.divider()
 st.markdown("""
-
+### 🚀 Хотите узнать больше?
 
 Получите персональный расчёт для вашего региона и консультацию по выбору оборудования.
 
-**📞 Телефон:** +7 (499) 769-39-10  
+**📞 Телефон:** +7 (XXX) XXX-XX-XX  
 **📧 Email:** info@washerbot.ru  
 **🌐 Сайт:** [washerbot.ru](https://washerbot.ru)
 """)
 
-st.caption("© WasherBot — Технологии для вашего бизнеса | 2026")
-
+st.caption("© 2024 WasherBot — Роботизированные мойки автомобилей")
