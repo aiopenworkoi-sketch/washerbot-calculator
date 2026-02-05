@@ -46,7 +46,7 @@ section[data-testid="stSidebar"] * {{
     color: {TEXT};
 }}
 .block-container {{
-    padding-top: 2.5rem;
+    padding-top: 3rem;
 }}
 div[data-testid="stMetric"] {{
     background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
@@ -370,7 +370,6 @@ with col_dl:
 # ══════════════════════════════════════════════════════════════
 st.divider()
 st.markdown("""
-### 🚀 Хотите узнать больше?
 
 Получите персональный расчёт для вашего региона и консультацию по выбору оборудования.
 
@@ -379,4 +378,4 @@ st.markdown("""
 **🌐 Сайт:** [washerbot.ru](https://washerbot.ru)
 """)
 
-st.caption("© 2024 WasherBot — Роботизированные мойки автомобилей")
+st.caption("© WasherBot | Технологии для вашего бизнеса | 2026")
