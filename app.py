@@ -373,10 +373,11 @@ st.markdown("""
 
 Получите персональный расчёт для вашего региона и консультацию по выбору оборудования.
 
-** Телефон:** +7 (499) 769-39-10  
-** Email:** info@washerbot.ru  
-** Сайт:** [washerbot.ru](https://washerbot.ru)
+ Телефон: +7 (499) 769-39-10  
+ Email: info@washerbot.ru  
+ Сайт: [washerbot.ru](https://washerbot.ru)
 """)
 
 st.caption("© WasherBot | Технологии для вашего бизнеса | 2026")
+
 
