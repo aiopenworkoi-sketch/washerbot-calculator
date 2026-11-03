@@ -90,6 +90,10 @@ def fmt_months(months: float) -> str:
         return missing_placeholder()
     years = int(months // 12)
     rem = int(round(months - years * 12))
+    # 35,9 мес — это 3 года, а не «2 года 12 мес»
+    if rem == 12:
+        years += 1
+        rem = 0
     if years == 0:
         return f"{rem} мес"
     if rem == 0:

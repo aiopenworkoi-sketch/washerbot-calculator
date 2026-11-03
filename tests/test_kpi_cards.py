@@ -15,6 +15,18 @@ def test_format_kpi_payback_compact_matches_full_style() -> None:
     assert compact == full == "3 года 1 мес"
 
 
+def test_payback_never_shows_twelve_months() -> None:
+    """35,9 мес — это 3 года, а не «2 года 12 мес»."""
+    from ui.renderers import fmt_months
+
+    assert fmt_months(35.9) == "3 года"
+    assert fmt_months(23.9) == "2 года"
+    assert fmt_months(11.6) == "1 год"
+    assert fmt_months(35.4) == "2 года 11 мес"
+    for value in (11.6, 12.4, 23.9, 35.9, 47.9, 59.9):
+        assert "12 мес" not in fmt_months(value)
+
+
 def test_simple_kpi_cards_use_same_payback_style() -> None:
     res = calculate_simple(build_sample_simple_params())
     specs = build_simple_kpi_card_specs(res)
