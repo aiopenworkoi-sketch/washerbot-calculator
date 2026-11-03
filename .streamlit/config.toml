@@ -1,3 +1,6 @@
+[client]
+toolbarMode = "viewer"
+
 [theme]
 base = "dark"
 primaryColor = "#2E86FF"
@@ -5,3 +8,6 @@ backgroundColor = "#071225"
 secondaryBackgroundColor = "#0B1B33"
 textColor = "#E5E7EB"
 font = "sans serif"
+
+[server]
+headless = true

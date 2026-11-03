@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+README*
+DEPLOY.md
+tests/
+requirements-dev.txt
+*.log
+Thumbs.db
+desktop.ini

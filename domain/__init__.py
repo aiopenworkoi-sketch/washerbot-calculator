@@ -1,0 +1,1 @@
+"""Domain dataclasses for WasherBot."""

@@ -1,383 +1,1403 @@
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
+"""
+WasherBot — Калькулятор окупаемости робот-мойки Leisuwash
+Часть 1/5: Конфиг, каталог оборудования, упрощённая налоговая модель (ориентир 2026)
+"""
+
+from __future__ import annotations
+from typing import Tuple
+import math
+
 import numpy as np
-import numpy_financial as npf
+import streamlit as st
 
-# ══════════════════════════════════════════════════════════════
-# THEME / BRAND
-# ══════════════════════════════════════════════════════════════
-APP_NAME = "WasherBot"
-LOGO_PATH = "assets/logo.png"
-
-NAVY_900 = "#071225"
-NAVY_800 = "#0B1B33"
-NAVY_700 = "#102A4C"
-ACCENT = "#2E86FF"
-ACCENT_2 = "#38BDF8"
-GOOD = "#22C55E"
-BAD = "#EF4444"
-TEXT = "#E5E7EB"
-MUTED = "#94A3B8"
-BORDER = "rgba(255,255,255,0.08)"
-
-st.set_page_config(
-    page_title=f"{APP_NAME} — Калькулятор окупаемости",
-    page_icon="assets/favicon.png",
-    layout="wide",
-    initial_sidebar_state="expanded",
+from data.catalogs import (
+    REGIONS,
+    SEASONALITY,
+    WASHER_CATALOG,
+)
+from data.washer_access import get_washer_model
+from domain.params import ProParams, SimpleParams
+from domain.results import ProResult, SimpleResult
+from finance.credit import annuity_payment, annuity_schedule, calculate_credit_schedule
+from finance.capacity import (
+    build_capacity_diagnostics,
+    cap_demand_by_capacity,
+    estimate_daily_capacity,
+    estimate_monthly_capacity,
+    estimate_peak_hour_utilization,
+)
+from finance.ecology import build_eco_metrics
+from finance.water_discharge import effective_water_tariff_rub_per_m3
+from finance.metrics import (
+    calculate_discounted_payback,
+    calculate_irr,
+    calculate_npv,
+    calculate_payback,
+)
+from finance.model_constants import NPV_DISCOUNT_RATE_ANNUAL
+from finance.model_core import _calculate_pro_core
+from finance.opex import calculate_water_cost_per_m3
+from finance.program_mix import compute_program_mix
+from finance.seasonality import build_seasonality_factors
+from finance.var_cost_per_wash import compute_var_cost_per_wash
+from finance.sensitivity import build_pro_sensitivity_cases
+from finance.taxation import calculate_monthly_tax_schedule
+from finance.taxes import (
+    TAX_MODEL_BASELINE_YEAR,
+    insurance_contributions_sme,
+    patent_cost_month_for_region,
+)
+from ui.exports import render_pro_export_section, render_simple_monthly_table_block
+from ui.inputs import render_sidebar_pro, render_sidebar_simple
+from ui.layout_styles import build_layout_css
+from ui.streamlit_shell_css import (
+    build_normal_streamlit_shell_css,
+    build_presentation_streamlit_shell_css,
+)
+from ui.renderers import (
+    BRAND,
+    render_footer,
+    render_header,
+    render_mode_switcher,
+)
+from ui.presentation_mode import (
+    init_presentation_mode,
+    render_presentation_flag,
+    render_presentation_mode_controls,
+)
+from ui.results import (
+    render_pro_assumptions_snapshot,
+    render_pro_break_even_block,
+    render_pro_capacity_block,
+    render_pro_compare_block,
+    render_pro_config_card,
+    render_pro_detail_layer,
+    render_pro_ecology_block,
+    render_pro_executive_verdict,
+    render_pro_investment_memo,
+    render_pro_kpi_cards,
+    render_pro_scenarios_block,
+    render_pro_sensitivity_block,
+    render_simple_breakdown_block,
+    render_simple_cashflow_chart,
+    render_simple_config_card,
+    render_simple_executive_hero,
+    render_simple_hints,
+    render_simple_kpi_cards,
+    render_simple_revenue_expenses_chart,
 )
 
-# ══════════════════════════════════════════════════════════════
-# CSS STYLES
-# ══════════════════════════════════════════════════════════════
-st.markdown(
-    f"""
-<style>
-.stApp {{
-    background: radial-gradient(1200px 700px at 15% 0%, {NAVY_700} 0%, {NAVY_900} 55%, #050A14 100%);
-    color: {TEXT};
-}}
-section[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, {NAVY_800} 0%, {NAVY_900} 100%);
-    border-right: 1px solid {BORDER};
-}}
-section[data-testid="stSidebar"] * {{
-    color: {TEXT};
-}}
-.block-container {{
-    padding-top: 3rem;
-}}
-div[data-testid="stMetric"] {{
-    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
-    border: 1px solid {BORDER};
-    border-radius: 16px;
-    padding: 14px 14px 10px 14px;
-}}
-div[data-testid="stMetric"] label {{
-    color: {MUTED} !important;
-}}
-div[data-testid="stMetricValue"] {{
-    color: {TEXT} !important;
-    font-weight: 800 !important;
-}}
-h1, h2, h3 {{
-    color: {TEXT};
-}}
-.small-muted {{
-    color: {MUTED};
-    font-size: 14px;
-}}
-div[data-testid="stDataFrame"] {{
-    border: 1px solid {BORDER};
-    border-radius: 14px;
-    overflow: hidden;
-}}
-div[data-testid="stPlotlyChart"] {{
-    background: transparent;
-    border: 1px solid {BORDER};
-    border-radius: 16px;
-    padding: 10px;
-}}
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 # ══════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
+# КОНФИГ СТРАНИЦЫ (вызывается ОДИН раз — здесь)
 # ══════════════════════════════════════════════════════════════
-def rub(x):
-    try:
-        return f"{x:,.0f} ₽".replace(",", " ")
-    except:
-        return f"{x} ₽"
+def setup_page():
+    """Конфигурация страницы Streamlit. Вызывается первой в main()."""
+    st.set_page_config(
+        page_title="WasherBot — Калькулятор робот-мойки Leisuwash",
+        page_icon=None,
+        layout="wide",
+        initial_sidebar_state="expanded",
+        menu_items={
+            "About": "WasherBot — финансовое моделирование автомоек Leisuwash"
+        },
+    )
 
-def pct(x):
-    try:
-        return f"{x:.1f}%"
-    except:
-        return f"{x}%"
 
-def style_plotly_dark(fig, title: str):
-    fig.update_layout(
-        title=title,
-        template="plotly_dark",
-        height=440,
-        margin=dict(l=20, r=20, t=70, b=25),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=TEXT, size=14),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0,
-            bgcolor="rgba(0,0,0,0)",
+# ══════════════════════════════════════════════════════════════
+# CSS — тёмная контрастная тема
+# ══════════════════════════════════════════════════════════════
+def inject_css():
+    """Внедряет фирменный CSS."""
+    css = f"""
+    <style>
+    /* === STREAMLIT SHELL === */
+    {build_normal_streamlit_shell_css()}
+    {build_presentation_streamlit_shell_css()}
+    .block-container {{
+        padding-top: 1rem !important;
+    }}
+
+    /* === ОСНОВА === */
+    .stApp {{
+        background: linear-gradient(180deg, {BRAND['bg']} 0%, #050810 100%);
+        color: {BRAND['text']};
+    }}
+    
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 1240px;
+    }}
+
+    [data-testid="stAppViewContainer"] > .main .block-container {{
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }}
+    
+    /* === ТИПОГРАФИКА === */
+    h1, h2, h3, h4, h5, h6 {{
+        color: {BRAND['text']} !important;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }}
+    
+    p, label, span, div {{
+        color: {BRAND['text2']};
+    }}
+    
+    /* === САЙДБАР === */
+    section[data-testid="stSidebar"] {{
+        background: {BRAND['bg2']} !important;
+        border-right: 1px solid {BRAND['border']};
+    }}
+    
+    section[data-testid="stSidebar"] .stMarkdown h3 {{
+        color: {BRAND['text2']} !important;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        margin-top: 1.4rem;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0;
+        border-bottom: none;
+    }}
+
+    .wb-sidebar-heading {{
+        color: {BRAND['text']};
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin: 1.35rem 0 0.55rem 0;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid {BRAND['border']};
+    }}
+    
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
+        color: {BRAND['muted']} !important;
+        font-size: 0.78rem !important;
+    }}
+    
+    section[data-testid="stSidebar"] label {{
+        color: {BRAND['text']} !important;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }}
+    
+    /* === INPUT / NUMBER / SELECT === */
+    .stTextInput input,
+    .stNumberInput input,
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div {{
+        background-color: {BRAND['card']} !important;
+        color: {BRAND['text']} !important;
+        border: 1px solid {BRAND['border']} !important;
+        border-radius: 8px !important;
+    }}
+    
+    .stNumberInput button {{
+        background-color: {BRAND['card']} !important;
+        color: {BRAND['text']} !important;
+        border-color: {BRAND['border']} !important;
+    }}
+    
+    /* === SLIDER === */
+    .stSlider [data-baseweb="slider"] > div > div {{
+        background: {BRAND['primary']} !important;
+    }}
+    
+    .stSlider [role="slider"] {{
+        background-color: {BRAND['primary']} !important;
+        border: 2px solid {BRAND['text']} !important;
+        box-shadow: none !important;
+    }}
+    
+    /* === КНОПКИ === */
+    .stButton > button {{
+        background: {BRAND['card']};
+        color: {BRAND['text']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 0.55rem 1.2rem;
+        transition: all 0.18s ease;
+    }}
+    
+    .stButton > button:hover {{
+        border-color: {BRAND['primary']};
+        background: rgba(46,134,255,0.1);
+        transform: translateY(-1px);
+    }}
+
+    .stDownloadButton > button {{
+        background: {BRAND['card']};
+        color: {BRAND['text']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.45rem 0.85rem;
+        min-height: 38px;
+        font-size: 0.88rem;
+        transition: all 0.18s ease;
+    }}
+
+    .stDownloadButton > button:hover {{
+        border-color: {BRAND['primary']};
+        background: rgba(46,134,255,0.1);
+        transform: translateY(-1px);
+    }}
+    
+    .stButton > button[kind="primary"] {{
+        background: {BRAND['primary']};
+        border: 1px solid {BRAND['primary']};
+        color: #fff !important;
+        box-shadow: none;
+    }}
+    
+    .stButton > button[kind="primary"]:hover {{
+        background: #4A78D8;
+        box-shadow: none;
+        transform: none;
+    }}
+
+    .stButton > button[kind="secondary"] {{
+        background: transparent;
+        border: 1px solid {BRAND['border']};
+        color: {BRAND['text2']} !important;
+        font-weight: 500;
+        padding: 0.45rem 0.9rem;
+        box-shadow: none;
+    }}
+
+    .stButton > button[kind="secondary"]:hover {{
+        border-color: rgba(46,134,255,0.45);
+        background: rgba(46,134,255,0.06);
+        transform: none;
+    }}
+
+    .wb-compare-secondary .stButton > button {{
+        padding: 0.42rem 0.75rem;
+        font-size: 0.86rem;
+        white-space: nowrap;
+    }}
+    
+    /* === ШАПКА === */
+    .wb-header {{
+        background: {BRAND['bg2']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 12px;
+        padding: 22px 26px;
+        margin-bottom: 22px;
+        box-shadow: none;
+    }}
+    
+    .wb-header-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+        flex-wrap: wrap;
+    }}
+    
+    .wb-header-left {{ flex: 1; min-width: 280px; }}
+    
+    .wb-badge {{
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgba(91,141,239,0.12);
+        color: {BRAND['primary']};
+        border: 1px solid rgba(91,141,239,0.28);
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }}
+    
+    .wb-title {{
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: {BRAND['text']};
+        margin: 0 0 6px 0;
+        letter-spacing: -0.02em;
+    }}
+    
+    .wb-subtitle {{
+        color: {BRAND['text2']};
+        font-size: 0.96rem;
+        margin: 0;
+    }}
+    
+    .wb-header-right {{
+        text-align: right;
+        font-size: 0.88rem;
+        line-height: 1.7;
+        color: {BRAND['text2']};
+    }}
+    
+    .wb-header-right a {{
+        color: {BRAND['text2']};
+        text-decoration: none;
+        font-weight: 500;
+    }}
+    
+    .wb-header-right a:hover {{ text-decoration: underline; }}
+    
+    /* === КАРТОЧКИ === */
+    .wb-card {{
+        background: {BRAND['surface']};
+        border: 1px solid {BRAND.get('border_default', BRAND['border'])};
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin-bottom: 14px;
+        box-shadow: none;
+    }}
+    
+    .wb-card-title {{
+        font-size: 1rem;
+        font-weight: 700;
+        color: {BRAND['text']};
+        margin: 0 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    
+    .wb-card-title::before {{
+        display: none;
+    }}
+    
+    /* === МЕТРИКИ === */
+    .wb-metric {{
+        background: {BRAND['surface']};
+        border: 1px solid {BRAND.get('border_subtle', 'rgba(138,152,168,0.16)')};
+        border-left: 2px solid {BRAND.get('border_subtle', 'rgba(138,152,168,0.16)')};
+        border-radius: 10px;
+        padding: 14px 16px;
+        height: 100%;
+        transition: border-color 0.15s ease;
+    }}
+    
+    .wb-metric:hover {{
+        border-color: {BRAND['border']};
+        transform: none;
+        box-shadow: none;
+    }}
+
+    .wb-metric--primary {{
+        border-left-color: rgba(91, 141, 239, 0.55);
+        background: linear-gradient(180deg, rgba(91,141,239,0.05) 0%, {BRAND['surface']} 100%);
+    }}
+
+    .wb-metric--primary .wb-metric-value {{
+        font-size: 1.85rem;
+        font-weight: 700;
+    }}
+
+    .wb-metric--secondary .wb-metric-value {{
+        font-size: 1.35rem;
+        font-weight: 600;
+        color: {BRAND['text']};
+    }}
+
+    .wb-metric--secondary .wb-metric-label {{
+        font-size: 0.74rem;
+    }}
+    
+    .wb-metric-label {{
+        font-size: 0.76rem;
+        color: {BRAND['muted']};
+        text-transform: none;
+        letter-spacing: 0.02em;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }}
+    
+    .wb-metric-value {{
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: {BRAND['text']};
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+    }}
+    
+    .wb-metric-hint {{
+        font-size: 0.78rem;
+        color: {BRAND['text2']};
+        margin-top: 6px;
+    }}
+    
+    .wb-metric.good {{ border-left-color: {BRAND['green']}; }}
+    .wb-metric.good .wb-metric-value {{ color: {BRAND['green']}; }}
+    
+    .wb-metric.warn {{ border-left-color: {BRAND['yellow']}; }}
+    .wb-metric.warn .wb-metric-value {{ color: {BRAND['text']}; }}
+    
+    .wb-metric.bad {{ border-left-color: {BRAND['red']}; }}
+    .wb-metric.bad .wb-metric-value {{ color: {BRAND['text']}; }}
+
+    .wb-metric.off {{
+        border-left-color: {BRAND['muted']};
+        opacity: 0.85;
+    }}
+    .wb-metric.off .wb-metric-value {{ color: {BRAND['text2']}; }}
+    
+    /* === ИНФО / ПРЕДУПРЕЖДЕНИЕ / УСПЕХ === */
+    .wb-info {{
+        background: rgba(46,134,255,0.08);
+        border: 1px solid rgba(46,134,255,0.3);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: {BRAND['text']};
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }}
+    
+    .wb-warn {{
+        background: rgba(245,158,11,0.08);
+        border: 1px solid rgba(245,158,11,0.3);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: {BRAND['text']};
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }}
+    
+    .wb-success {{
+        background: rgba(16,185,129,0.08);
+        border: 1px solid rgba(16,185,129,0.3);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: {BRAND['text']};
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }}
+
+    .wb-danger {{
+        background: rgba(239,68,68,0.10);
+        border: 1px solid rgba(239,68,68,0.35);
+        border-radius: 10px;
+        padding: 12px 16px;
+        color: {BRAND['text']};
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }}
+    
+    /* === ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ (premium segmented) === */
+    .wb-mode-tabs {{
+        margin: 0 0 8px 0;
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid {BRAND['border']};
+        background: rgba(15, 23, 42, 0.72);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }}
+    .wb-mode-tabs [data-testid="column"] {{
+        padding: 0 2px !important;
+    }}
+    .wb-mode-tabs .stButton > button {{
+        border-radius: 8px;
+        border: 1px solid transparent;
+        padding: 0.55rem 0.75rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        background: transparent;
+        box-shadow: none;
+        width: 100%;
+    }}
+    .wb-mode-tabs .stButton > button[kind="primary"] {{
+        background: linear-gradient(
+            180deg,
+            rgba(91, 141, 239, 0.22) 0%,
+            rgba(91, 141, 239, 0.1) 100%
+        );
+        border-color: rgba(91, 141, 239, 0.45);
+        color: {BRAND['text']} !important;
+        box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.1);
+    }}
+    .wb-mode-tabs .stButton > button[kind="secondary"] {{
+        background: transparent;
+        color: {BRAND['muted']} !important;
+        border-color: transparent;
+    }}
+    .wb-mode-tabs .stButton > button[kind="secondary"]:hover {{
+        color: {BRAND['text2']} !important;
+        background: rgba(91, 141, 239, 0.08);
+        border-color: rgba(91, 141, 239, 0.18);
+    }}
+    .wb-mode-tabs .stButton > button:hover {{
+        transform: none;
+    }}
+
+    .wb-mode-info {{
+        font-size: 0.76rem;
+        color: {BRAND['muted']};
+        text-align: center;
+        margin: 0 0 14px 0;
+        padding: 5px 10px;
+        border: 1px solid {BRAND['border']};
+        border-radius: 8px;
+        background: rgba(17,24,39,0.35);
+    }}
+
+    .wb-compare-secondary {{
+        opacity: 0.96;
+    }}
+    .wb-compare-secondary .wb-section-subtitle {{
+        margin-top: 0 !important;
+    }}
+    [data-testid="stExpander"] details {{
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+        background: rgba(17,24,39,0.25);
+    }}
+    [data-testid="stExpander"] summary {{
+        font-weight: 600;
+        color: {BRAND['text2']};
+        font-size: 0.92rem;
+    }}
+
+    .wb-config-body {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        color: {BRAND['text2']};
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }}
+
+    .wb-config-row {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+    }}
+
+    .wb-config-segment {{
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+    }}
+
+    .wb-config-kicker {{
+        color: {BRAND['muted']};
+        font-size: 0.74rem;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+    }}
+
+    /* === DECISION LAYER === */
+    .wb-verdict {{
+        margin-bottom: 20px;
+        border-left: 3px solid {BRAND['border']};
+    }}
+    .wb-verdict--good {{ border-left-color: {BRAND['green']}; }}
+    .wb-verdict--warn {{ border-left-color: {BRAND['yellow']}; }}
+    .wb-verdict--bad {{ border-left-color: {BRAND['red']}; }}
+    .wb-verdict--info {{ border-left-color: {BRAND['primary']}; }}
+
+    .wb-verdict-headline {{
+        font-size: 1.12rem;
+        font-weight: 600;
+        color: {BRAND['text']};
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }}
+
+    .wb-verdict-bullets {{
+        margin: 0;
+        padding-left: 1.1rem;
+        color: {BRAND['text2']};
+        font-size: 0.88rem;
+        line-height: 1.65;
+    }}
+    .wb-verdict-bullet {{ margin-bottom: 4px; }}
+
+    .wb-scenario-cards-row {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin: 12px 0 18px 0;
+    }}
+    @media (max-width: 900px) {{
+        .wb-scenario-cards-row {{ grid-template-columns: 1fr; }}
+    }}
+
+    .wb-scenario-card {{
+        background: {BRAND['card']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+        padding: 14px 16px;
+    }}
+    .wb-scenario-card--base {{
+        border-color: rgba(91,141,239,0.45);
+        background: linear-gradient(180deg, rgba(91,141,239,0.06) 0%, {BRAND['card']} 100%);
+    }}
+    .wb-scenario-card-label {{
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: {BRAND['text']};
+        margin-bottom: 10px;
+        letter-spacing: 0.02em;
+    }}
+    .wb-scenario-card-metric {{
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-bottom: 8px;
+    }}
+    .wb-scenario-card-kicker {{
+        font-size: 0.72rem;
+        color: {BRAND['muted']};
+    }}
+    .wb-scenario-card-value {{
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: {BRAND['text']};
+    }}
+    .wb-scenario-card-factor {{
+        font-size: 0.76rem;
+        color: {BRAND['text2']};
+        margin-top: 4px;
+    }}
+
+    .wb-section-subtitle {{
+        color: {BRAND['muted']};
+        font-size: 0.86rem;
+        margin: -6px 0 14px 0;
+        line-height: 1.5;
+    }}
+    .wb-section-takeaway {{
+        color: {BRAND['text2']};
+        font-size: 0.88rem;
+        margin: 0 0 12px 0;
+        line-height: 1.55;
+        padding-left: 10px;
+        border-left: 2px solid {BRAND['border']};
+    }}
+    .wb-section-caption {{
+        color: {BRAND['muted']};
+        font-size: 0.78rem;
+        margin: 8px 0 0 0;
+        line-height: 1.5;
+    }}
+    .wb-detail-subheading {{
+        color: {BRAND['text']};
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 18px 0 10px 0;
+    }}
+
+    /* === ASSUMPTIONS / MEMO LAYER === */
+    .wb-assumption-grid {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 20px;
+        margin-bottom: 14px;
+    }}
+    @media (max-width: 800px) {{
+        .wb-assumption-grid {{ grid-template-columns: 1fr; }}
+    }}
+    .wb-assumption-row {{
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px;
+        background: {BRAND['card']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 8px;
+    }}
+    .wb-assumption-row--risk {{
+        border-left: 2px solid {BRAND['yellow']};
+    }}
+    .wb-assumption-label {{
+        font-size: 0.72rem;
+        color: {BRAND['muted']};
+        font-weight: 500;
+    }}
+    .wb-assumption-value {{
+        font-size: 0.92rem;
+        color: {BRAND['text']};
+        font-weight: 600;
+    }}
+    .wb-assumption-note {{
+        font-size: 0.74rem;
+        color: {BRAND['text2']};
+        line-height: 1.4;
+    }}
+    .wb-assumption-risks {{
+        margin: 0;
+        padding-left: 1.1rem;
+        color: {BRAND['text2']};
+        font-size: 0.82rem;
+        line-height: 1.55;
+    }}
+    .wb-assumption-risk-item {{ margin-bottom: 4px; }}
+
+    .wb-memo {{
+        border-left: 3px solid {BRAND['border']};
+    }}
+    .wb-memo--good {{ border-left-color: {BRAND['green']}; }}
+    .wb-memo--warn {{ border-left-color: {BRAND['yellow']}; }}
+    .wb-memo--bad {{ border-left-color: {BRAND['red']}; }}
+    .wb-memo--info {{ border-left-color: {BRAND['primary']}; }}
+    .wb-memo-headline {{
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: {BRAND['text']};
+        margin-bottom: 16px;
+        line-height: 1.45;
+    }}
+    .wb-memo-groups {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }}
+    @media (max-width: 900px) {{
+        .wb-memo-groups {{ grid-template-columns: 1fr; }}
+    }}
+    .wb-memo-group-title {{
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: {BRAND['muted']};
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+    }}
+    .wb-memo-group {{
+        background: {BRAND['card']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+        padding: 12px 14px;
+    }}
+    .wb-memo-item {{
+        font-size: 0.86rem;
+        line-height: 1.5;
+        margin-bottom: 6px;
+        padding: 8px 10px;
+        border-radius: 6px;
+    }}
+    .wb-memo-item:last-child {{ margin-bottom: 0; }}
+    .wb-memo-actions-block {{
+        border-top: 1px solid {BRAND['border']};
+        padding-top: 14px;
+    }}
+    .wb-memo-actions {{
+        margin: 6px 0 0 0;
+        padding-left: 1.1rem;
+        color: {BRAND['text2']};
+        font-size: 0.86rem;
+        line-height: 1.6;
+    }}
+    .wb-memo-action {{ margin-bottom: 4px; }}
+
+    .wb-export-shell {{
+        background: {BRAND['card']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+    }}
+    .wb-export-note {{
+        color: {BRAND['text2']};
+        font-size: 0.86rem;
+        margin: 0 0 6px 0;
+        line-height: 1.5;
+    }}
+
+    .wb-compare-empty {{
+        background: {BRAND['card']};
+        border: 1px dashed {BRAND['border']};
+        border-radius: 10px;
+        padding: 16px 18px;
+        color: {BRAND['text2']};
+        font-size: 0.9rem;
+        margin: 12px 0;
+    }}
+    .wb-compare-variant-name {{
+        color: {BRAND['text']};
+        font-size: 0.9rem;
+        font-weight: 500;
+    }}
+    .wb-compare-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0 16px 0;
+        font-size: 0.84rem;
+    }}
+    .wb-compare-table th,
+    .wb-compare-table td {{
+        border: 1px solid {BRAND['border']};
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }}
+    .wb-compare-table th {{
+        color: {BRAND['muted']};
+        font-weight: 600;
+        background: {BRAND['card']};
+    }}
+    .wb-compare-metric {{
+        color: {BRAND['text2']};
+        font-weight: 500;
+    }}
+    .wb-compare-delta {{
+        color: {BRAND['muted']};
+        font-size: 0.76rem;
+    }}
+    .wb-memo-neutral {{
+        background: transparent;
+        border: none;
+        color: {BRAND['text2']};
+        padding: 4px 0;
+    }}
+
+    /* === DETAIL TABS — base overrides (premium rail in layout_styles) === */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 4px;
+    }}
+    
+    /* === ТАБЛИЦЫ === */
+    .stDataFrame, .stTable {{
+        background: {BRAND['bg2']} !important;
+        border-radius: 10px;
+    }}
+    
+    /* === EXPANDER === */
+    .stExpander {{
+        background: {BRAND['bg2']};
+        border: 1px solid {BRAND['border']};
+        border-radius: 10px;
+    }}
+    
+    .stExpander summary {{
+        color: {BRAND['text']} !important;
+        font-weight: 600;
+    }}
+    
+    /* === ФУТЕР — base shell (premium layout in layout_styles) === */
+    
+    /* === МОБИЛЬНАЯ АДАПТАЦИЯ === */
+    {build_layout_css(BRAND)}
+    @media (max-width: 768px) {{
+        .wb-title {{ font-size: 1.5rem; }}
+        .wb-metric-value {{ font-size: 1.35rem; }}
+        .wb-kpi-grid .wb-metric-value,
+        .wb-kpi-grid .wb-metric--primary .wb-metric-value {{
+            font-size: 1.28rem;
+        }}
+        .wb-header {{ padding: 18px; }}
+        .wb-header-right {{ text-align: left; margin-top: 12px; }}
+        .block-container {{ padding-left: 0.8rem !important; padding-right: 0.8rem !important; }}
+    }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def calculate_simple(params: SimpleParams) -> SimpleResult:
+    """Основной расчёт для простого режима."""
+    
+    model = get_washer_model(params.model_code, WASHER_CATALOG)
+    region = REGIONS[params.region_key]
+    H = params.horizon_months
+    
+    mix = compute_program_mix(params.programs)
+    daily_capacity_per_robot = estimate_daily_capacity(
+        cars_per_hour_reference=model.cars_per_hour,
+        cycle_time_reference_min=model.cycle_time_min,
+        weighted_duration_min=mix.weighted_duration_min,
+    )
+    monthly_capacity_total = estimate_monthly_capacity(
+        daily_capacity_per_robot=daily_capacity_per_robot,
+        work_days_month=params.work_days_month,
+        n_robots=params.n_robots,
+    )
+
+    water_cost_per_m3 = calculate_water_cost_per_m3(
+        supply=region.water_supply,
+        sewage=region.water_sewage,
+        profile=params.water_discharge_profile,
+    )
+
+    var_cost = compute_var_cost_per_wash(
+        model=model,
+        mix=mix,
+        water_cost_per_m3=water_cost_per_m3,
+        elec_price=region.elec_price,
+        extra_dryers_enabled=params.extra_dryers_enabled,
+    )
+    cost_water_per_wash = var_cost.water
+    cost_elec_per_wash = var_cost.electricity
+    cost_chem_per_wash = var_cost.chemistry
+    var_cost_per_wash = var_cost.total
+    avg_check = mix.avg_check
+    
+    # ── Авто/мес с сезонностью (на ОДИН робот) ──
+    months = np.arange(1, H + 1)
+    monthly_seasonality = build_seasonality_factors(SEASONALITY, 1.0)
+    demand_per_month_one = np.zeros(H)
+    for i in range(H):
+        month_idx = i % 12  # 0..11
+        seas = monthly_seasonality[month_idx]
+        demand_per_month_one[i] = params.cars_per_day_avg * params.work_days_month * seas
+    
+    # На все роботы + ограничение техпропускной способностью
+    demand_per_month = demand_per_month_one * params.n_robots
+    cars_per_month = cap_demand_by_capacity(demand_per_month, monthly_capacity_total)
+    capacity_diagnostics = build_capacity_diagnostics(
+        demand_per_month,
+        monthly_capacity_total,
+    )
+    
+    # ── Выручка ──
+    revenue_month = cars_per_month * avg_check
+    
+    # ── Переменные расходы ──
+    var_costs_month = cars_per_month * var_cost_per_wash
+    
+    # ── ЗП администратора (1 человек на ВСЮ площадку, не множится на роботов) ──
+    salary_gross = params.admin_salary_gross
+    insurance = insurance_contributions_sme(salary_gross)
+    salary_total = salary_gross + insurance  # компания платит gross + страховые
+    salary_total_month = np.full(H, salary_total)
+    
+    # ── Постоянные (аренда, прочее — на ПЛОЩАДКУ, не множится) ──
+    fix_costs_month = np.full(H, params.rent_month + params.other_fixed)
+    
+    # ── EBT (до налога) ──
+    ebt_month = revenue_month - var_costs_month - fix_costs_month - salary_total_month
+    
+    # ── Налоги (упрощённая policy, ориентир TAX_MODEL_BASELINE_YEAR) ──
+    tax_month = calculate_monthly_tax_schedule(
+        revenue_month=revenue_month,
+        taxable_profit_month=ebt_month,
+        tax_regime=params.tax_regime,
+        start_year=TAX_MODEL_BASELINE_YEAR,
+        insurance_month=insurance,
+        patent_cost_month=patent_cost_month_for_region(params.region_key),
+    )
+    
+    # ── Чистая прибыль ──
+    profit_month = ebt_month - tax_month
+    
+    # ── Cashflow ──
+    cashflow = np.zeros(H + 1)
+    cashflow[0] = -params.total_investment
+    cashflow[1:] = profit_month
+    cumulative = np.cumsum(cashflow)
+    
+    # ── KPI ──
+    avg_revenue_month = float(np.mean(revenue_month))
+    avg_profit_month = float(np.mean(profit_month))
+    total_revenue = float(np.sum(revenue_month))
+    total_profit = float(np.sum(profit_month))
+    payback_months = calculate_payback(cumulative)
+    npv = calculate_npv(cashflow, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
+    irr = calculate_irr(cashflow)
+    margin = (avg_profit_month / avg_revenue_month) if avg_revenue_month > 0 else 0
+    
+    # ── Структура расходов 1-го года ──
+    n1 = min(12, H)
+    breakdown_year1 = {
+        "Вода": float(np.sum(cars_per_month[:n1] * cost_water_per_wash)),
+        "Электричество": float(np.sum(cars_per_month[:n1] * cost_elec_per_wash)),
+        "Химия": float(np.sum(cars_per_month[:n1] * cost_chem_per_wash)),
+        "ЗП и взносы": float(np.sum(salary_total_month[:n1])),
+        "Аренда": float(params.rent_month * n1),
+        "Прочее (охрана, реклама)": float(params.other_fixed * n1),
+        "Налоги": float(np.sum(tax_month[:n1])),
+    }
+    
+    return SimpleResult(
+        months=months,
+        cars_per_month=cars_per_month,
+        revenue_month=revenue_month,
+        var_costs_month=var_costs_month,
+        fix_costs_month=fix_costs_month,
+        salary_total_month=salary_total_month,
+        tax_month=tax_month,
+        profit_month=profit_month,
+        cashflow=cashflow,
+        cumulative=cumulative,
+        avg_check=avg_check,
+        avg_revenue_month=avg_revenue_month,
+        avg_profit_month=avg_profit_month,
+        total_revenue=total_revenue,
+        total_profit=total_profit,
+        payback_months=payback_months,
+        npv=npv,
+        irr=irr,
+        margin=margin,
+        breakdown_year1=breakdown_year1,
+        params=params,
+        capacity_binding_months=capacity_diagnostics.capacity_binding_months,
+        annual_unserved_demand=capacity_diagnostics.annual_unserved_demand,
+        annual_unserved_share=capacity_diagnostics.annual_unserved_share,
+        peak_requested_utilization=capacity_diagnostics.peak_requested_utilization,
+        peak_hour_utilization=estimate_peak_hour_utilization(
+            capacity_diagnostics.peak_requested_utilization
+        ),
+        peak_unserved_month=capacity_diagnostics.peak_unserved_month,
+        zero_capacity_positive_demand_months=capacity_diagnostics.zero_capacity_positive_demand_months,
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# UI — SIMPLE
+# ══════════════════════════════════════════════════════════════
+def render_simple_ui(res: SimpleResult):
+    """Рендер результатов простого режима."""
+    render_simple_config_card(res)
+    render_simple_executive_hero(res)
+    render_simple_kpi_cards(res)
+    render_simple_cashflow_chart(res)
+    render_simple_revenue_expenses_chart(res)
+    render_simple_breakdown_block(res)
+    render_simple_monthly_table_block(res)
+    render_simple_hints(res)
+
+
+# ══════════════════════════════════════════════════════════════
+# ENTRY-POINT для simple режима
+# ══════════════════════════════════════════════════════════════
+def run_simple_mode():
+    """Запуск простого режима: сайдбар + расчёт + UI."""
+    params = render_sidebar_simple()
+    result = calculate_simple(params)
+    render_simple_ui(result)
+
+
+
+def calculate_pro(params: ProParams) -> ProResult:
+    """Полный расчёт PRO-режима."""
+    
+    H = params.horizon_months
+    months = np.arange(1, H + 1)
+    
+    # ── База ──
+    core = _calculate_pro_core(params, traffic_factor=1.0)
+    cars_per_month = core["cars_per_month"]
+    revenue_month = core["revenue_month"]
+    var_costs_month = core["var_costs_month"]
+    avg_check = core["avg_check"]
+    capacity_diagnostics = core["capacity_diagnostics"]
+    
+    # ── CAPEX ──
+    capex_total = (
+        params.capex_equipment + params.capex_construction + params.capex_engineering
+        + params.capex_premises + params.capex_launch + params.capex_other
+    )
+
+    # ── Кредит ──
+    credit_active = bool(params.use_credit and params.credit_amount > 0 and params.credit_term_months > 0)
+    # Кредит не может превышать CAPEX: иначе собственные вложения = 0 и модель показывает
+    # «окупаемость 0 месяцев» при заёмных деньгах больше проекта.
+    credit_used = min(max(0.0, params.credit_amount), capex_total) if credit_active else 0.0
+    own_funds = max(0.0, capex_total - credit_used)
+
+    capex_breakdown = {
+        "Оборудование": params.capex_equipment,
+        "СМР, фундамент": params.capex_construction,
+        "Инженерные сети": params.capex_engineering,
+        "Помещение": params.capex_premises,
+        "Запуск, ПНР": params.capex_launch,
+        "Прочее, резерв": params.capex_other,
+    }
+    
+    # ── Кредит ──
+    if credit_active and credit_used > 0:
+        sched = calculate_credit_schedule(
+            amount=credit_used,
+            annual_rate=params.credit_rate_annual,
+            term_months=params.credit_term_months,
+            grace_months=params.credit_grace_months,
+        )
+        # Развёртываем на горизонт H
+        credit_interest_month = np.zeros(H)
+        credit_principal_month = np.zeros(H)
+        n_use = min(H, params.credit_term_months)
+        credit_interest_month[:n_use] = sched["interest"][:n_use]
+        credit_principal_month[:n_use] = sched["principal"][:n_use]
+    else:
+        credit_interest_month = np.zeros(H)
+        credit_principal_month = np.zeros(H)
+    
+    # ── Амортизация (линейная, на оборудование) ──
+    # Учитывается только в режимах, где она снижает базу
+    amort_per_month = (
+        params.capex_equipment / (params.amort_years_equipment * 12)
+        if params.amort_years_equipment > 0 else 0
+    )
+    amort_period = params.amort_years_equipment * 12
+    amortization_month = np.zeros(H)
+    amortization_month[:min(H, amort_period)] = amort_per_month
+    
+    # ── ЗП ──
+    salary_admin_gross = params.admin_salary_gross * params.n_admins
+    salary_manager_gross = params.manager_salary_gross * params.n_managers
+    salary_gross_total = salary_admin_gross + salary_manager_gross
+    
+    # Страховые: считаем по каждому сотруднику отдельно (МРОТ для каждого)
+    insurance_admin = (
+        insurance_contributions_sme(params.admin_salary_gross) * params.n_admins
+    )
+    insurance_manager = (
+        insurance_contributions_sme(params.manager_salary_gross) * params.n_managers
+    )
+    salary_total = salary_gross_total + insurance_admin + insurance_manager
+    salary_total_month = np.full(H, salary_total)
+    
+    # ── OPEX ──
+    opex_per_month = (
+        params.rent_month + params.utilities_extra + params.security_month
+        + params.marketing_month + params.maintenance_month
+        + params.insurance_month + params.other_opex
+    )
+    opex_month = np.full(H, opex_per_month)
+    
+    # ── EBITDA ──
+    ebitda_month = revenue_month - var_costs_month - opex_month - salary_total_month
+    
+    # ── EBT (до налога): − %кредита − амортизация ──
+    ebt_month = ebitda_month - credit_interest_month - amortization_month
+    
+    # ── Налоги (упрощённая policy, ориентир TAX_MODEL_BASELINE_YEAR) ──
+    tax_month = calculate_monthly_tax_schedule(
+        revenue_month=revenue_month,
+        taxable_profit_month=ebt_month,
+        tax_regime=params.tax_regime,
+        start_year=TAX_MODEL_BASELINE_YEAR,
+        insurance_month=insurance_admin + insurance_manager,
+        patent_cost_month=patent_cost_month_for_region(params.region_key),
+    )
+    
+    # ── Чистая прибыль (после налога) ──
+    profit_month = ebt_month - tax_month
+    
+    # ── Cashflow: учитывает движение денег, а не P&L ──
+    # Из прибыли возвращаем амортизацию (она не денежный отток),
+    # вычитаем погашение тела кредита (денежный отток)
+    cashflow_op = profit_month + amortization_month - credit_principal_month
+    
+    cashflow = np.zeros(H + 1)
+    cashflow[0] = -own_funds   # из своего кармана
+    cashflow[1:] = cashflow_op
+    cumulative = np.cumsum(cashflow)
+    
+    # ── KPI ──
+    avg_revenue_month = float(np.mean(revenue_month))
+    avg_profit_month = float(np.mean(profit_month))
+    avg_ebitda_month = float(np.mean(ebitda_month))
+    total_revenue = float(np.sum(revenue_month))
+    total_profit = float(np.sum(profit_month))
+    payback_months = calculate_payback(cumulative)
+    if own_funds <= 0:
+        # Собственных вложений нет — окупаемость «нулевого чека» не имеет смысла.
+        payback_months = float("nan")
+    npv = calculate_npv(cashflow, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
+    irr = calculate_irr(cashflow)
+    margin_net = (avg_profit_month / avg_revenue_month) if avg_revenue_month > 0 else 0
+    margin_ebitda = (avg_ebitda_month / avg_revenue_month) if avg_revenue_month > 0 else 0
+    
+    # ── Сценарии ──
+    def _scenario_cumulative(factor: float) -> Tuple[np.ndarray, float]:
+        c = _calculate_pro_core(params, traffic_factor=factor)
+        rev = c["revenue_month"]
+        var = c["var_costs_month"]
+        ebitda = rev - var - opex_month - salary_total_month
+        ebt = ebitda - credit_interest_month - amortization_month
+        tax = calculate_monthly_tax_schedule(
+            revenue_month=rev,
+            taxable_profit_month=ebt,
+            tax_regime=params.tax_regime,
+            start_year=TAX_MODEL_BASELINE_YEAR,
+            insurance_month=insurance_admin + insurance_manager,
+            patent_cost_month=patent_cost_month_for_region(params.region_key),
+        )
+        prof = ebt - tax
+        cf_op = prof + amortization_month - credit_principal_month
+        cf = np.zeros(H + 1)
+        cf[0] = -own_funds
+        cf[1:] = cf_op
+        cum = np.cumsum(cf)
+        if own_funds <= 0:
+            return cum, float("nan")
+        return cum, calculate_payback(cum)
+    
+    cumulative_pessim, payback_pessim = _scenario_cumulative(params.scenario_pessim_factor)
+    cumulative_optim, payback_optim = _scenario_cumulative(params.scenario_optim_factor)
+    
+    # ── Структура OPEX за 1-й год ──
+    n1 = min(12, H)
+    opex_breakdown_year1 = {
+        "Вода": float(np.sum(cars_per_month[:n1] * core["cost_water_per_wash"])),
+        "Электричество": float(np.sum(cars_per_month[:n1] * core["cost_elec_per_wash"])),
+        "Химия": float(np.sum(cars_per_month[:n1] * core["cost_chem_per_wash"])),
+        "ЗП и взносы": float(np.sum(salary_total_month[:n1])),
+        "Аренда": float(params.rent_month * n1),
+        "Коммуналка": float(params.utilities_extra * n1),
+        "Охрана": float(params.security_month * n1),
+        "Маркетинг": float(params.marketing_month * n1),
+        "ТО, расходники": float(params.maintenance_month * n1),
+        "Страхование": float(params.insurance_month * n1),
+        "Прочее": float(params.other_opex * n1),
+        "% по кредиту": float(np.sum(credit_interest_month[:n1])),
+        "Налоги": float(np.sum(tax_month[:n1])),
+    }
+    
+    # ── Чувствительность (Δ NPV при +10% к параметру) ──
+    sensitivity = build_pro_sensitivity_cases(params)
+    
+    # ── Экология ──
+    model = get_washer_model(params.model_code, WASHER_CATALOG)
+    region = REGIONS[params.region_key]
+    annual_cars = float(np.sum(cars_per_month[:n1])) if n1 > 0 else 0
+    eco_metrics = build_eco_metrics(
+        annual_served_washes=annual_cars,
+        # фактический расход на мойку с учётом микса программ (а не базовый по модели)
+        water_per_wash_l=model.water_per_wash_l * float(core.get("avg_water_factor", 1.0)),
+        chem_per_wash_rub=model.chem_per_wash_rub * float(core.get("avg_chem_factor", 1.0)),
+        eco_water_recycle_pct=params.eco_water_recycle_pct,
+        eco_chem_premium=params.eco_chem_premium,
+        water_total_tariff_rub_per_m3=effective_water_tariff_rub_per_m3(
+            region.water_supply,
+            region.water_sewage,
+            params.water_discharge_profile,
         ),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(255,255,255,0.06)", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.06)", zeroline=False)
-    return fig
-
-# ══════════════════════════════════════════════════════════════
-# HEADER WITH LOGO
-# ══════════════════════════════════════════════════════════════
-try:
-    c_logo, c_title = st.columns([1, 5])
-    with c_logo:
-        st.image(LOGO_PATH, use_container_width=True)
-    with c_title:
-        st.markdown(f"<h1 style='margin-bottom:0'>{APP_NAME} — Калькулятор окупаемости</h1>", unsafe_allow_html=True)
-        st.markdown("<div class='small-muted'>Рассчитайте прибыльность роботизированной мойки за 2 минуты</div>", unsafe_allow_html=True)
-except:
-    st.title(f"🤖 {APP_NAME} — Калькулятор окупаемости")
-    st.caption("Рассчитайте прибыльность роботизированной мойки за 2 минуты")
-
-st.write("")
-
-# ══════════════════════════════════════════════════════════════
-# SIDEBAR: INPUT PARAMETERS
-# ══════════════════════════════════════════════════════════════
-with st.sidebar:
-    st.header("1. Параметры Мойки")
-    traffic = st.slider("Плановый трафик (авто/сутки)", 20, 200, 50)
-    capex = st.number_input("Инвестиции (₽)", value=6_000_000, step=100_000)
-
-    st.header("2. Региональные Тарифы")
-    col1, col2 = st.columns(2)
-    with col1:
-        price_kw = st.number_input("Эл-во (₽/кВт)", value=8.5, step=0.5)
-        price_water = st.number_input("Вода+Сток (₽/м³)", value=68.0, step=1.0)
-    with col2:
-        tax_system = st.selectbox("Система налогов", ["УСН 6% (Доходы)", "УСН 15% (Д-Р)", "Патент"])
-        acquiring = st.number_input("Эквайринг (%)", value=2.0, step=0.1) / 100
-
-    if tax_system == "УСН 6% (Доходы)":
-        tax_rate_income = 0.06
-        tax_rate_profit = 0.0
-        tax_fix_val = 0
-    elif tax_system == "УСН 15% (Д-Р)":
-        tax_rate_income = 0.0
-        tax_rate_profit = 0.15
-        tax_fix_val = 0
-    else:
-        tax_rate_income = 0.0
-        tax_rate_profit = 0.0
-        tax_fix_val = st.number_input("Патент (₽/мес)", value=5000)
-
-    st.header("3. Постоянные Расходы")
-    rent = st.number_input("Аренда (мес)", value=100_000, step=5000)
-    salary = st.number_input("ФОТ (мес)", value=120_000, step=5000)
-    marketing = st.number_input("Маркетинг (мес)", value=15_000, step=1000)
-    waste = st.number_input("Илосос (мес)", value=15_000, step=1000)
-
-    st.header("4. Опции")
-    use_osmos = st.checkbox("Осмос / Умягчение", value=True)
-    use_recycle = st.checkbox("Рециркуляция воды", value=False)
-
-    with st.expander("⚙️ Расширенные настройки"):
-        osmos_cost = st.number_input("Расх. осмос (₽/авто)", value=5.0) if use_osmos else 0.0
-        recycle_savings = st.slider("Экономия воды (%)", 0, 80, 70) if use_recycle else 0
-        recycle_energy = st.number_input("Доп. энергия (кВт)", value=0.5) if use_recycle else 0.0
-        st.divider()
-        price_std = st.number_input("Цена 'Стандарт'", value=450)
-        price_prm = st.number_input("Цена 'Премиум'", value=750)
-        chem_std = st.number_input("Химия 'Стандарт'", value=16.0)
-        chem_prm = st.number_input("Химия 'Премиум'", value=25.0)
-
-# ══════════════════════════════════════════════════════════════
-# CALCULATIONS
-# ══════════════════════════════════════════════════════════════
-# Ресурсы на 1 авто
-res_std = {"water": 130, "energy": 1.2, "chem": chem_std}
-res_prm = {"water": 320, "energy": 1.5, "chem": chem_prm}
-
-# Модификаторы
-water_mult = (100 - recycle_savings) / 100 if use_recycle else 1.0
-energy_add = recycle_energy if use_recycle else 0.0
-supply_add = (osmos_cost if use_osmos else 0.0) + (2.0 if use_recycle else 0.0)
-
-def calc_cogs(res):
-    water_cost = (res["water"] * water_mult / 1000) * price_water
-    energy_cost = (res["energy"] + energy_add) * price_kw
-    return water_cost + energy_cost + res["chem"] + supply_add
-
-cogs_std = calc_cogs(res_std)
-cogs_prm = calc_cogs(res_prm)
-
-# Средние (60% Стандарт, 40% Премиум)
-avg_check = (price_std * 0.6) + (price_prm * 0.4)
-avg_cogs = (cogs_std * 0.6) + (cogs_prm * 0.4)
-
-# Точка безубыточности
-fixed_costs = rent + salary + marketing + waste + tax_fix_val
-
-if tax_system == "УСН 6% (Доходы)":
-    margin_per_car = avg_check * (1 - acquiring - tax_rate_income) - avg_cogs
-else:
-    margin_per_car = avg_check * (1 - acquiring) - avg_cogs
-
-break_even = (fixed_costs / margin_per_car / 30) if margin_per_car > 0 else 999
-
-# Симуляция 36 месяцев
-seasonality = [1.1, 1.05, 1.15, 0.85, 0.80, 0.90, 0.90, 0.95, 1.00, 1.10, 1.25, 1.30]
-data = []
-balance = -capex
-payback_idx = None
-cash_flows = [-capex]
-
-for m in range(36):
-    season = seasonality[m % 12]
-    ramp = [0.5, 0.7, 0.9][m] if m < 3 else 1.0
-    cars = traffic * 30 * season * ramp
     
-    revenue = cars * avg_check
-    var_cogs = cars * avg_cogs
-    var_acq = revenue * acquiring
-    
-    if tax_system == "УСН 6% (Доходы)":
-        tax = revenue * tax_rate_income
-    elif tax_system == "УСН 15% (Д-Р)":
-        base = revenue - var_cogs - var_acq - (rent + salary + marketing + waste)
-        tax = max(0, base * tax_rate_profit)
-    else:
-        tax = tax_fix_val
-    
-    maintenance = 60000 if (m + 1) % 4 == 0 else 0
-    expenses = var_cogs + var_acq + rent + salary + marketing + waste + tax + maintenance
-    profit = revenue - expenses
-    balance += profit
-    cash_flows.append(profit)
-    
-    if balance >= 0 and payback_idx is None:
-        payback_idx = m + 1
-    
-    data.append({
-        "Месяц": m + 1,
-        "Трафик": int(cars),
-        "Выручка": int(revenue),
-        "Расходы": int(expenses),
-        "Прибыль": int(profit),
-        "Баланс": int(balance)
-    })
-
-df = pd.DataFrame(data)
-
-# IRR
-try:
-    irr_m = npf.irr(cash_flows)
-    irr_annual = ((1 + irr_m) ** 12 - 1) * 100 if irr_m and np.isfinite(irr_m) else 0
-except:
-    irr_annual = 0
-
-# ══════════════════════════════════════════════════════════════
-# KPI METRICS
-# ══════════════════════════════════════════════════════════════
-st.subheader(" Ключевые показатели")
-
-payback_text = f"{payback_idx} мес." if payback_idx else "> 36 мес."
-
-m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("Окупаемость", payback_text)
-m2.metric("Точка безубыточности", f"{break_even:.0f} авто/день")
-m3.metric("Средний чек", rub(avg_check))
-m4.metric("Себестоимость", rub(avg_cogs))
-m5.metric("IRR (годовой)", pct(irr_annual))
-
-st.divider()
-
-a1, a2, a3 = st.columns(3)
-a1.metric("Выручка / мес (средняя)", rub(df["Выручка"].mean()))
-a2.metric("Прибыль / мес (средняя)", rub(df["Прибыль"].mean()))
-a3.metric("Баланс через 3 года", rub(df["Баланс"].iloc[-1]))
-
-# ══════════════════════════════════════════════════════════════
-# CHARTS
-# ══════════════════════════════════════════════════════════════
-t1, t2 = st.tabs([" Денежный поток", " Точка безубыточности"])
-
-with t1:
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=df["Месяц"], y=df["Прибыль"],
-        name="Прибыль",
-        marker_color="rgba(46,134,255,0.6)",
-        hovertemplate="Месяц %{x}<br>Прибыль: %{y:,.0f} ₽<extra></extra>"
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["Месяц"], y=df["Баланс"],
-        name="Накопленный баланс",
-        line=dict(color=ACCENT_2, width=3),
-        hovertemplate="Месяц %{x}<br>Баланс: %{y:,.0f} ₽<extra></extra>"
-    ))
-    fig.add_hline(y=0, line_dash="dash", line_color=BAD, opacity=0.7)
-    if payback_idx:
-        fig.add_vline(x=payback_idx, line_dash="dot", line_color=GOOD,
-                      annotation_text=f"Окупаемость: {payback_idx} мес", annotation_font_color=TEXT)
-    fig = style_plotly_dark(fig, "Денежный поток и окупаемость")
-    st.plotly_chart(fig, use_container_width=True)
-
-with t2:
-    max_x = max(150, traffic * 1.5, break_even * 1.4)
-    x_arr = np.linspace(0, max_x, 150)
-    y_rev = x_arr * 30 * avg_check
-    y_cost = []
-    for tr in x_arr:
-        rev = tr * 30 * avg_check
-        cogs = tr * 30 * avg_cogs
-        acq = rev * acquiring
-        if tax_system == "УСН 6% (Доходы)":
-            tx = rev * tax_rate_income
-        elif tax_system == "УСН 15% (Д-Р)":
-            tx = max(0, (rev - cogs - acq - fixed_costs) * tax_rate_profit)
-        else:
-            tx = tax_fix_val
-        y_cost.append(fixed_costs + cogs + acq + tx)
-    
-    fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=x_arr, y=y_rev, name="Выручка", line=dict(color=GOOD, width=3)))
-    fig2.add_trace(go.Scatter(x=x_arr, y=y_cost, name="Расходы", line=dict(color=BAD, width=3)))
-    fig2.add_trace(go.Scatter(
-        x=x_arr, y=np.maximum(np.array(y_rev) - np.array(y_cost), 0),
-        name="Прибыль", fill="tozeroy", fillcolor="rgba(34,197,94,0.1)", line=dict(width=0)
-    ))
-    fig2.add_vline(x=break_even, line_dash="dash", line_color="white", opacity=0.5,
-                   annotation_text=f"BEP: {break_even:.0f}", annotation_font_color=TEXT)
-    fig2.add_vline(x=traffic, line_dash="dot", line_color=ACCENT,
-                   annotation_text=f"План: {traffic}", annotation_font_color=TEXT)
-    fig2 = style_plotly_dark(fig2, "Точка безубыточности")
-    st.plotly_chart(fig2, use_container_width=True)
-
-# ══════════════════════════════════════════════════════════════
-# TABLE & EXPORT
-# ══════════════════════════════════════════════════════════════
-with st.expander("📑 Детальная таблица по месяцам"):
-    st.dataframe(df, use_container_width=True)
-
-col_dl, col_cta = st.columns([1, 2])
-with col_dl:
-    st.download_button(
-        "📥 Скачать отчёт (CSV)",
-        df.to_csv(index=False).encode("utf-8"),
-        "washerbot_model.csv",
-        "text/csv"
+    return ProResult(
+        months=months,
+        cars_per_month=cars_per_month,
+        revenue_month=revenue_month,
+        var_costs_month=var_costs_month,
+        opex_month=opex_month,
+        salary_total_month=salary_total_month,
+        credit_interest_month=credit_interest_month,
+        credit_principal_month=credit_principal_month,
+        amortization_month=amortization_month,
+        ebitda_month=ebitda_month,
+        ebt_month=ebt_month,
+        tax_month=tax_month,
+        profit_month=profit_month,
+        cashflow=cashflow,
+        cumulative=cumulative,
+        avg_check=avg_check,
+        capex_total=capex_total,
+        own_funds=own_funds,
+        avg_revenue_month=avg_revenue_month,
+        avg_profit_month=avg_profit_month,
+        avg_ebitda_month=avg_ebitda_month,
+        total_revenue=total_revenue,
+        total_profit=total_profit,
+        payback_months=payback_months,
+        npv=npv,
+        irr=irr,
+        margin_net=margin_net,
+        margin_ebitda=margin_ebitda,
+        payback_pessim=payback_pessim,
+        payback_optim=payback_optim,
+        cumulative_pessim=cumulative_pessim,
+        cumulative_optim=cumulative_optim,
+        capex_breakdown=capex_breakdown,
+        opex_breakdown_year1=opex_breakdown_year1,
+        sensitivity=sensitivity,
+        water_saved_m3_year=eco_metrics.water_saved_m3_year,
+        chem_extra_cost_year=eco_metrics.chem_extra_cost_year,
+        water_cost_saving_rub_year=eco_metrics.water_cost_saving_rub_year,
+        params=params,
+        capacity_binding_months=capacity_diagnostics.capacity_binding_months,
+        annual_unserved_demand=capacity_diagnostics.annual_unserved_demand,
+        annual_unserved_share=capacity_diagnostics.annual_unserved_share,
+        peak_requested_utilization=capacity_diagnostics.peak_requested_utilization,
+        peak_hour_utilization=estimate_peak_hour_utilization(
+            capacity_diagnostics.peak_requested_utilization
+        ),
+        peak_unserved_month=capacity_diagnostics.peak_unserved_month,
+        zero_capacity_positive_demand_months=capacity_diagnostics.zero_capacity_positive_demand_months,
     )
 
+
 # ══════════════════════════════════════════════════════════════
-# CTA (Call to Action)
+# UI — PRO
 # ══════════════════════════════════════════════════════════════
-st.divider()
-st.markdown("""
+def render_pro_ui(res: ProResult):
+    """Рендер результатов PRO-режима."""
+    from ui.compare_state import sync_compare_snapshots_cache
 
-Получите персональный расчёт для вашего региона и консультацию по выбору оборудования.
+    sync_compare_snapshots_cache(calculate_pro)
+    render_pro_config_card(res)
+    render_pro_executive_verdict(res)
+    render_pro_kpi_cards(res)
+    render_pro_scenarios_block(res)
+    render_pro_sensitivity_block(res)
+    render_pro_break_even_block(res)
+    render_pro_capacity_block(res)
+    render_pro_assumptions_snapshot(res)
+    render_pro_investment_memo(res)
+    render_pro_compare_block(res, calculate_pro_fn=calculate_pro)
+    render_pro_detail_layer(res)
+    render_pro_export_section(res)
+    render_pro_ecology_block(res)
 
- Телефон: +7 (499) 769-39-10  
- Email: info@washerbot.ru  
- Сайт: [washerbot.ru](https://washerbot.ru)
-""")
 
-st.caption("© WasherBot | Технологии для вашего бизнеса | 2026")
+# ══════════════════════════════════════════════════════════════
+# ENTRY-POINT для PRO режима
+# ══════════════════════════════════════════════════════════════
+def run_pro_mode():
+    """Запуск углублённого режима."""
+    params = render_sidebar_pro()
+    result = calculate_pro(params)
+    render_pro_ui(result)
 
 
+# ══════════════════════════════════════════════════════════════
+# ГЛАВНАЯ ФУНКЦИЯ
+# ══════════════════════════════════════════════════════════════
+def main():
+    """Точка входа в приложение."""
+    setup_page()
+    init_presentation_mode()
+    inject_css()
+
+    if "mode" not in st.session_state:
+        st.session_state.mode = "simple"
+    mode = st.session_state.mode
+
+    render_header(mode)
+    mode = render_mode_switcher()
+    render_presentation_mode_controls()
+    render_presentation_flag()
+
+    from ui.scenario_state import apply_pending_scenario_hydration
+
+    apply_pending_scenario_hydration()
+
+    try:
+        if mode == "pro":
+            run_pro_mode()
+        else:
+            run_simple_mode()
+    except Exception as e:
+        st.markdown(
+            f'<div class="wb-danger"><b>Ошибка расчёта:</b> {str(e)}<br>'
+            f'<span style="font-size:0.85rem; color:{BRAND["muted"]};">'
+            f'Проверьте корректность введённых параметров в сайдбаре.</span></div>',
+            unsafe_allow_html=True,
+        )
+        with st.expander("Технические детали ошибки", expanded=False):
+            import traceback
+            st.code(traceback.format_exc(), language="python")
+    render_footer()
+# ══════════════════════════════════════════════════════════════
+# ЗАПУСК
+# ══════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    main()
