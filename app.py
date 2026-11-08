@@ -968,7 +968,8 @@ def inject_css():
     }}
 
     /* Streamlit разрывает HTML-обёртки вокруг виджетов: пустые div дают артефакты */
-    .wb-chart-shell {{
+    .wb-chart-shell,
+    .wb-export-board {{
         display: none !important;
     }}
     .wb-mode-tabs {{
