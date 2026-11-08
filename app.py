@@ -920,6 +920,12 @@ def inject_css():
             font-size: 1.6rem !important;
         }}
     }}
+    /* чекбоксы/тумблеры: подпись не переносится на две строки */
+    [data-testid="stCheckbox"] label,
+    [data-testid="stCheckbox"] label p,
+    [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] {{
+        white-space: nowrap !important;
+    }}
     /* === ТАБЛИЦЫ (HTML) === */
     .wb-table-wrap {{
         border: 1px solid {BRAND['border_subtle']};
@@ -970,6 +976,20 @@ def inject_css():
         background: transparent !important;
         padding: 0 !important;
         min-height: 0 !important;
+    }}
+    /* === ТУЛТИПЫ (базовая тёмная тема) === */
+    [data-testid="stTooltipContent"],
+    [data-baseweb="tooltip"] {{
+        background: {BRAND['surface2']} !important;
+        border: 1px solid {BRAND['border']} !important;
+        border-radius: 10px !important;
+        max-width: 340px !important;
+        padding: 8px 12px !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+    }}
+    [data-testid="stTooltipContent"] * {{
+        color: {BRAND['text']} !important;
+        background: transparent !important;
     }}
     /* === КОНТРАСТ КНОПОК (WCAG AA) === */
     .stButton > button[kind="primary"],

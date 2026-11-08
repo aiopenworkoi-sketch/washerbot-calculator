@@ -263,17 +263,25 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
         color: {t['on_primary']} !important;
     }}
 
-    /* === ТУЛТИПЫ: белый текст на тёмной плашке === */
+    /* === ТУЛТИПЫ: белый текст на тёмной плашке (высокая специфичность) === */
     [data-testid="stTooltipContent"],
-    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] {{
+    [data-baseweb="tooltip"] {{
         background: {t['text']} !important;
         color: #FFFFFF !important;
+        border-radius: 10px !important;
+        max-width: 340px !important;
+        padding: 8px 12px !important;
+        box-shadow: 0 10px 30px rgba(31, 27, 22, 0.28) !important;
     }}
-    [data-testid="stTooltipContent"] * {{
+    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"],
+    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] div,
+    [data-testid="stTooltipContent"] p,
+    [data-testid="stTooltipContent"] span {{
         color: #FFFFFF !important;
         background: transparent !important;
     }}
-
     /* === СЛАЙДЕРЫ: подписи без золотых плашек === */
     [data-testid="stSlider"] [data-testid="stSliderTickBar"] [data-testid="stMarkdownContainer"],
     [data-testid="stSlider"] [data-testid="stMarkdownContainer"] {{
@@ -289,6 +297,17 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
         background-image: none !important;
         background-color: {t['border_subtle']} !important;
         border-radius: 999px !important;
+    }}
+
+    /* === ТУМБЛЕР (st.toggle): дорожка и кнопка под тему === */
+    label[data-baseweb="checkbox"] > div:first-child {{
+        background: {rgba(t['text'], 0.28)} !important;
+    }}
+    label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {{
+        background: {t['primary']} !important;
+    }}
+    label[data-baseweb="checkbox"] > div:first-child > div {{
+        background: {t['surface2']} !important;
     }}
     /* ============ ТАБЫ ============ */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{

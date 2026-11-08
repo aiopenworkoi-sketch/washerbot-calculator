@@ -788,7 +788,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
 
     /* === PREMIUM FOOTER / CLOSING CTA === */
     .wb-footer {{
-        background: linear-gradient(135deg, {rgba(brand['bg2'], 0.95)} 0%, {rgba(brand['bg2'], 0.98)} 55%, rgba(12, 18, 32, 1) 100%);
+        background: linear-gradient(135deg, {rgba(brand['bg2'], 0.95)} 0%, {rgba(brand['bg2'], 0.98)} 55%, {rgba(brand['bg2'], 1)} 100%);
         border: 1px solid {brand['border_subtle']};
         border-radius: 14px;
         padding: 18px 20px 14px 20px;
