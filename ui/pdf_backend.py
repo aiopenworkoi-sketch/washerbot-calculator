@@ -33,7 +33,7 @@ def _pdf_palette() -> dict[str, str]:
             "title": "#0B2545",
             "text": "#0F172A",
             "muted": "#64748B",
-            "muted2": "#94A3B8",
+            "muted2": "#5F6B7A",
             "accent": "#13315C",
             "head": "#F1F5F9",
             "border": "#E2E8F0",
@@ -158,6 +158,18 @@ def _escape_pdf_text(text: str) -> str:
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
+
+
+def best_recommendation(actions: Sequence[str]) -> str:
+    """Первая «инвесторская» рекомендация: без внутренних QA-формулировок."""
+    if not actions:
+        return ""
+    priority = ("Подготовить", "Пересчитать", "Скорректировать", "Проработать", "Пересмотреть", "Оценить")
+    for prefix in priority:
+        for action in actions:
+            if action.startswith(prefix):
+                return action
+    return actions[0]
 
 
 def pdf_paragraph(text: str, style: ParagraphStyle) -> Paragraph:

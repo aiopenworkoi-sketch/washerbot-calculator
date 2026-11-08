@@ -10,6 +10,7 @@ from typing import Sequence
 
 from domain.results import ProResult, SimpleResult
 from ui.compare_specs import CompareVariantSnapshot
+from ui.pdf_backend import best_recommendation
 from ui.report_layout import (
     REPORT_CSS,
     report_theme_css,
@@ -118,7 +119,7 @@ def _pro_risk_flags(spec: SingleInvestmentReportSpec) -> tuple[str, ...]:
 
 def _pro_recommendation(spec: SingleInvestmentReportSpec) -> str:
     if spec.memo_actions:
-        return spec.memo_actions[0]
+        return best_recommendation(spec.memo_actions)
     return spec.memo_headline
 
 
@@ -311,7 +312,7 @@ def render_comparison_report_html(spec: ComparisonReportSpec) -> str:
         mode_label="Pro",
         report_type_label=humanize_report_type(spec.report_type),
         generated_at=spec.generated_at,
-        status_label=f"База: {spec.baseline_label}",
+        status_label=(spec.baseline_label if spec.baseline_label.lower().startswith("база") else f"База: {spec.baseline_label}"),
         status_severity="info",
         config_summary=f"Сравнение {len(spec.variants)} вариантов",
     )

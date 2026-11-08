@@ -8,6 +8,7 @@ from reportlab.platypus import PageBreak, Paragraph, Spacer
 from reportlab.lib.units import mm
 
 from ui.pdf_backend import (
+    best_recommendation,
     build_pdf_bytes,
     pdf_bullets,
     pdf_cover_block,
@@ -90,7 +91,7 @@ def _pro_executive_page(
         flowables.extend(pdf_bullets(spec.risk_notes[:4], styles))
     if spec.memo_actions:
         flowables.append(pdf_paragraph("Рекомендация", styles["body"]))
-        flowables.append(pdf_paragraph(spec.memo_actions[0], styles["body"]))
+        flowables.append(pdf_paragraph(best_recommendation(spec.memo_actions), styles["body"]))
     elif spec.memo_headline:
         flowables.append(pdf_paragraph(spec.memo_headline, styles["body"]))
     return flowables

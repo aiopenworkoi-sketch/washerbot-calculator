@@ -28,15 +28,15 @@ def init_theme() -> str:
     return set_active_theme(str(theme))
 
 
-def render_theme_toggle() -> None:
-    """Кнопка-переключатель в правом верхнем углу шапки."""
+def render_theme_toggle(*, key_suffix: str = "") -> None:
+    """Кнопка-переключатель темы. key_suffix — для второго экземпляра."""
     theme = get_active_theme()
     is_dark = theme == "dark"
     label = "☀️ Светлая" if is_dark else "🌙 Тёмная"
-    with st.container(key="wb_theme_switch"):
+    with st.container(key=f"wb_theme_switch{key_suffix}"):
         if st.button(
             label,
-            key="wb_theme_toggle_btn",
+            key=f"wb_theme_toggle_btn{key_suffix}",
             help="Переключить тему оформления: тёмная / светлая",
             use_container_width=True,
         ):

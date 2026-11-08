@@ -18,7 +18,7 @@ _HEADER_FILL = PatternFill("solid", fgColor="1F3350")
 _HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
 _TITLE_FONT = Font(bold=True, size=14)
 _MONEY = "#,##0"
-_PCT = "0,0%"
+_PCT = "0.0%"
 
 
 def _write_header(ws, row: int, values: list[str]) -> None:
@@ -68,8 +68,8 @@ def build_pro_excel_bytes(res: ProResult) -> bytes:
         ("Регион", REGIONS[p.region_key].name, "@"),
         ("Горизонт, мес", p.horizon_months, "0"),
         ("Модель", WASHER_CATALOG[p.model_code].name, "@"),
-        ("НВ на ЦСВ", str(bool(getattr(p, "nv_norm_enabled", False))), "@"),
-        ("Сверхнорматив", str(bool(getattr(p, "nv_over_enabled", False))), "@"),
+        ("НВ на ЦСВ", "да" if getattr(p, "nv_norm_enabled", False) else "нет", "@"),
+        ("Сверхнорматив", "да" if getattr(p, "nv_over_enabled", False) else "нет", "@"),
         (
             "Остаточная стоимость",
             "×%s EBITDA" % getattr(p, "terminal_multiple", 3.0)
@@ -123,15 +123,15 @@ def build_pro_excel_bytes(res: ProResult) -> bytes:
     ws3 = wb.create_sheet("Допущения")
     _write_header(ws3, 1, ["Допущение", "Значение"])
     rows = [
-        ("Тариф воды, ₽/м³", getattr(p, "water_supply_override", None) or "регион"),
-        ("Тариф водоотведения, ₽/м³", getattr(p, "water_sewage_override", None) or "регион"),
-        ("Тариф электроэнергии, ₽/кВт·ч", getattr(p, "elec_price_override", None) or "регион"),
+        ("Тариф воды, ₽/м³", getattr(p, "water_supply_override", None) or REGIONS[p.region_key].water_supply),
+        ("Тариф водоотведения, ₽/м³", getattr(p, "water_sewage_override", None) or REGIONS[p.region_key].water_sewage),
+        ("Тариф электроэнергии, ₽/кВт·ч", getattr(p, "elec_price_override", None) or REGIONS[p.region_key].elec_price),
         ("Рециклинг воды, %", float(p.eco_water_recycle_pct)),
         ("Налоговый режим", TAX_REGIMES_LABELS.get(p.tax_regime, p.tax_regime)),
         ("Ставка кредита", float(p.credit_rate_annual)),
         ("Ставка дисконтирования", 0.18),
-        ("НВ на ЦСВ (0,5)", bool(getattr(p, "nv_norm_enabled", False))),
-        ("Сверхнорматив (2,0)", bool(getattr(p, "nv_over_enabled", False))),
+        ("НВ на ЦСВ (0,5)", "да" if getattr(p, "nv_norm_enabled", False) else "нет"),
+        ("Сверхнорматив (2,0)", "да" if getattr(p, "nv_over_enabled", False) else "нет"),
         ("Налог на имущество, ₽/мес", float(getattr(p, "property_tax_month", 0.0))),
         ("Земельный налог, ₽/мес", float(getattr(p, "land_tax_month", 0.0))),
         ("Взносы ИП, ₽/мес", float(getattr(p, "ip_contributions_month", 0.0))),

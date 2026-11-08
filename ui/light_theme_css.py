@@ -262,6 +262,34 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
         opacity: 1 !important;
         color: {t['on_primary']} !important;
     }}
+
+    /* === ТУЛТИПЫ: белый текст на тёмной плашке === */
+    [data-testid="stTooltipContent"],
+    [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] {{
+        background: {t['text']} !important;
+        color: #FFFFFF !important;
+    }}
+    [data-testid="stTooltipContent"] * {{
+        color: #FFFFFF !important;
+        background: transparent !important;
+    }}
+
+    /* === СЛАЙДЕРЫ: подписи без золотых плашек === */
+    [data-testid="stSlider"] [data-testid="stSliderTickBar"] [data-testid="stMarkdownContainer"],
+    [data-testid="stSlider"] [data-testid="stMarkdownContainer"] {{
+        background: transparent !important;
+    }}
+    [data-testid="stSliderTickBar"],
+    [data-testid="stSliderTickBar"] * {{
+        color: {t['muted']} !important;
+    }}
+
+    /* === СЛАЙДЕР: нейтральная дорожка вместо синей (цвет идёт из темы Streamlit) === */
+    [data-testid="stSlider"] [data-baseweb="slider"] div[style*="height: 0.25rem"] {{
+        background-image: none !important;
+        background-color: {t['border_subtle']} !important;
+        border-radius: 999px !important;
+    }}
     /* ============ ТАБЫ ============ */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{
         border-bottom: 1px solid {t['border_subtle']} !important;

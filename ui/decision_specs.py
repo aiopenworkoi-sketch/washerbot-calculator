@@ -182,7 +182,9 @@ def build_pro_capacity_summary_specs(res: ProResult) -> Tuple[CapacitySummarySpe
         CapacitySummarySpec(
             "Месяцев с ограничением",
             f"{res.capacity_binding_months} / {p.horizon_months}",
-            "спрос выше пропускной способности",
+            "месяцев со спросом выше мощности"
+            if res.capacity_binding_months
+            else "ограничений мощности нет",
             binding_status,
         ),
         CapacitySummarySpec(

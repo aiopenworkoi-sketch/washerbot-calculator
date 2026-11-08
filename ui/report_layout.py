@@ -260,6 +260,25 @@ body { background: #071225 !important; color: #E5E7EB !important; }
 .wb-report .wb-report-badge { background: #101C33 !important; border-color: #24344F !important; color: #E5E7EB !important; }
 .wb-report .wb-memo-group { background: #101C33 !important; border-color: #24344F !important; }
 .wb-report hr { border-color: #24344F !important; }
+@media print {
+  html, body { background: #FFFFFF !important; color: #0F172A !important; }
+  .wb-report { background: #FFFFFF !important; border-color: #E2E8F0 !important; color: #0F172A !important; }
+  .wb-report h1, .wb-report h2, .wb-report h3, .wb-report p, .wb-report li,
+  .wb-report span, .wb-report strong, .wb-report td, .wb-report th { color: #0F172A !important; }
+  .wb-report .wb-section--exec { background: #F8FAFC !important; }
+  .wb-report .wb-kpi, .wb-report .wb-table th, .wb-report .wb-table .metric { background: #F1F5F9 !important; }
+  .wb-report .wb-table td { color: #0F172A !important; border-color: #E2E8F0 !important; }
+  .wb-report .wb-disclaimer, .wb-report .wb-print-footer { color: #475569 !important; }
+}
+.wb-report .wb-section--exec { background: #101C33 !important; border-color: #24344F !important; }
+.wb-report .wb-report-badge { background: #101C33 !important; }
+.wb-report .wb-report-badge--good { background: #12301F !important; color: #86EFAC !important; }
+.wb-report .wb-report-badge--info { background: #12233A !important; color: #8FC2FF !important; }
+.wb-report .wb-report-badge--warn { background: #2A2412 !important; color: #F5C97A !important; }
+.wb-report .wb-report-badge--bad { background: #2E1717 !important; color: #F3A0A0 !important; }
+.wb-report .wb-table .metric { background: #101C33 !important; }
+.wb-report .wb-report-meta, .wb-report .wb-kpi-hint { color: #93A4BF !important; }
+
 """
 
 

@@ -58,11 +58,10 @@ def sidebar_logo_html() -> str:
 
 
 def document_logo_html(*, height: int = 22, margin: str = "0 0 10px") -> str:
-    """
-    Логотип для отчётов: тёмная (исходная) версия — документы печатаются
-    на белом фоне, белый текст там не виден.
-    """
-    uri = logo_data_uri(light=False)
+    """Логотип для HTML-отчёта: на тёмной теме — белый, на светлой — тёмный."""
+    from ui.theme_palette import is_light
+
+    uri = logo_data_uri(light=not is_light())
     if not uri:
         return ""
     return (

@@ -906,6 +906,20 @@ def inject_css():
     }}
     
 
+    /* === МОБИЛЬНЫЕ ПРАВКИ (кнопка сайдбара не перекрывает контент) === */
+    @media (max-width: 768px) {{
+        .block-container {{
+            padding-top: 3.6rem !important;
+        }}
+        .wb-hero-headline {{
+            font-size: 1.45rem !important;
+            line-height: 1.28 !important;
+        }}
+        .wb-hero-title,
+        .wb-title {{
+            font-size: 1.6rem !important;
+        }}
+    }}
     /* === ТАБЛИЦЫ (HTML) === */
     .wb-table-wrap {{
         border: 1px solid {BRAND['border_subtle']};
@@ -947,6 +961,11 @@ def inject_css():
         background: {rgba(BRAND['primary'], 0.08)};
     }}
 
+    /* Streamlit разрывает HTML-обёртки вокруг виджетов: пустые div дают артефакты */
+    .wb-chart-shell:empty,
+    .wb-mode-tabs:empty {{
+        display: none !important;
+    }}
     /* === КОНТРАСТ КНОПОК (WCAG AA) === */
     .stButton > button[kind="primary"],
     [data-testid="stBaseButton-primary"] {{
@@ -958,13 +977,20 @@ def inject_css():
     [data-testid="stBaseButton-primary"] * {{
         color: #FFFFFF !important;
     }}
-    /* === ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ === */
+    /* второй переключатель — только на мобильных, сверху сайдбара */
+    .st-key-wb_theme_switch_sidebar {{
+        display: none;
+    }}
+    @media (max-width: 900px) {{
+        .st-key-wb_theme_switch_sidebar {{
+            display: block;
+            margin: 0 0 10px 0;
+        }}
+    }}
+    /* === ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ (в потоке, справа под шапкой) === */
     .st-key-wb_theme_switch {{
-        position: fixed;
-        top: 18px;
-        right: 22px;
-        z-index: 1000002;
-        width: 152px;
+        width: 100%;
+        margin: 0 0 10px 0;
     }}
     .st-key-wb_theme_switch button {{
         border-radius: 999px !important;
@@ -975,17 +1001,9 @@ def inject_css():
         padding: 6px 12px !important;
     }}
     .wb-header {{
-        padding-right: 190px !important;
-    }}
-    .wb-header-right {{
-        padding-right: 0;
+        padding-right: 24px;
     }}
     @media (max-width: 900px) {{
-        .st-key-wb_theme_switch {{
-            position: static;
-            width: 100%;
-            margin: 0 0 10px 0;
-        }}
         .wb-header {{
             padding-right: 16px !important;
         }}
@@ -1552,13 +1570,17 @@ def main():
     init_presentation_mode()
     init_theme()
     inject_css()
+    with st.sidebar:
+        render_theme_toggle(key_suffix="_sidebar")
 
     if "mode" not in st.session_state:
         st.session_state.mode = "simple"
     mode = st.session_state.mode
 
     render_header(mode)
-    render_theme_toggle()
+    _theme_spacer, _theme_col = st.columns([4, 1])
+    with _theme_col:
+        render_theme_toggle()
     mode = render_mode_switcher()
     render_presentation_mode_controls()
     render_presentation_flag()
