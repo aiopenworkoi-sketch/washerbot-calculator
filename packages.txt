@@ -1,3 +1,1 @@
-# Пакеты apt, которые нужны приложению на Linux-хостинге.
-# Без шрифтов DejaVu ломается экспорт PDF (нужен TTF с кириллицей).
-fonts-dejavu-core
+﻿fonts-dejavu-core
