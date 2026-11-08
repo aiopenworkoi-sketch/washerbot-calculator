@@ -962,9 +962,14 @@ def inject_css():
     }}
 
     /* Streamlit разрывает HTML-обёртки вокруг виджетов: пустые div дают артефакты */
-    .wb-chart-shell:empty,
-    .wb-mode-tabs:empty {{
+    .wb-chart-shell {{
         display: none !important;
+    }}
+    .wb-mode-tabs {{
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        min-height: 0 !important;
     }}
     /* === КОНТРАСТ КНОПОК (WCAG AA) === */
     .stButton > button[kind="primary"],
