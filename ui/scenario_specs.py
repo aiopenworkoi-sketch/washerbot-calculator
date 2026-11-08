@@ -90,7 +90,7 @@ def build_pro_scenario_summary_rows(
             "Сценарий": spec.summary_label,
             "Множитель трафика": spec.factor_label,
             "Окупаемость": format_kpi_payback(spec.payback_months),
-            "Накопл. CF на конец": format_scenario_cumulative_money(spec.cumulative[-1]),
+            "Накопленный поток, ₽": format_scenario_cumulative_money(spec.cumulative[-1]),
         }
         for spec in specs
     ]

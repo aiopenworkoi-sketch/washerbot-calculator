@@ -91,8 +91,8 @@ def format_peak_load_percent(
 ) -> str:
     if peak_requested_utilization >= PEAK_UTILIZATION_INFINITY_THRESHOLD:
         if style == "simple":
-            return "выше расчётной capacity (capacity = 0)"
-        return "выше расчётной capacity"
+            return "выше расчётной мощности (мощность = 0)"
+        return "выше расчётной мощности"
     peak_pct = peak_requested_utilization * 100.0
     formatted = fmt_percent_value(peak_pct, decimals=0)
     if style == "simple":

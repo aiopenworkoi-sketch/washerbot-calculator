@@ -128,14 +128,14 @@ def build_simple_capacity_hint_spec(res: SimpleResult) -> AdvisoryItemSpec | Non
         key="capacity_overload",
         severity="warn",
         text=(
-            f"<b>Перегруз capacity:</b> в <b>{res.capacity_binding_months}</b> из "
+            f"<b>Не хватает мощности:</b> в <b>{res.capacity_binding_months}</b> из "
             f"<b>{p.horizon_months}</b> месяцев спрос выше технической пропускной способности. "
             f"Необслуженный спрос за 1-й год — <b>{fmt_int(res.annual_unserved_demand)}</b> авто "
             f"(<b>{fmt_ratio_pct(res.annual_unserved_share)}</b> от запрошенного). "
             f"Пиковая запрошенная загрузка — {peak_load_text}, "
             f"в самый нагруженный час — {format_peak_load_percent(res.peak_hour_utilization, style='simple')}."
             f"{peak_month_text}{zero_cap_text} "
-            "Расчёт ограничивает фактический поток по правилу served = min(demand, capacity)."
+            "В расчёте обслуживается не больше, чем позволяет мощность: остальной спрос теряется."
         ),
     )
 

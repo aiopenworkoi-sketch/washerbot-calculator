@@ -258,7 +258,7 @@ def render_comparison_spec_pdf(spec: ComparisonReportSpec) -> bytes:
     flowables.extend(_comparison_matrix_table(spec, styles))
     flowables.extend(_section_title("Приложение: варианты", styles))
     variant_lines = [
-        f"{line.label}{' (база)' if line.is_baseline else ''} · id {line.variant_id}"
+        f"{line.label}{' (база)' if line.is_baseline else ''}"
         for line in spec.variants
     ]
     flowables.extend(pdf_bullets(variant_lines, styles))

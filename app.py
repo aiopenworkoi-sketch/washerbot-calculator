@@ -939,6 +939,18 @@ def inject_css():
     table.wb-table tbody tr:hover td {{
         background: {rgba(BRAND['primary'], 0.08)};
     }}
+
+    /* === КОНТРАСТ КНОПОК (WCAG AA) === */
+    .stButton > button[kind="primary"],
+    [data-testid="stBaseButton-primary"] {{
+        background: #1E6FE0 !important;
+        border-color: #1E6FE0 !important;
+        color: #FFFFFF !important;
+    }}
+    .stButton > button[kind="primary"] *,
+    [data-testid="stBaseButton-primary"] * {{
+        color: #FFFFFF !important;
+    }}
     /* === ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ === */
     .st-key-wb_theme_switch {{
         position: fixed;
@@ -955,8 +967,11 @@ def inject_css():
         font-size: 0.82rem !important;
         padding: 6px 12px !important;
     }}
+    .wb-header {{
+        padding-right: 190px !important;
+    }}
     .wb-header-right {{
-        padding-right: 168px;
+        padding-right: 0;
     }}
     @media (max-width: 900px) {{
         .st-key-wb_theme_switch {{
@@ -964,8 +979,8 @@ def inject_css():
             width: 100%;
             margin: 0 0 10px 0;
         }}
-        .wb-header-right {{
-            padding-right: 0;
+        .wb-header {{
+            padding-right: 16px !important;
         }}
     }}
 </style>

@@ -12,6 +12,7 @@ from domain.results import ProResult, SimpleResult
 from ui.compare_specs import CompareVariantSnapshot
 from ui.report_layout import (
     REPORT_CSS,
+    report_theme_css,
     config_summary_line,
     render_appendix,
     render_bullets,
@@ -72,7 +73,7 @@ def _render_html_document(
         '<html lang="ru">\n<head>\n'
         f"<title>{_esc(title)}</title>\n"
         f"{''.join(meta_tags)}\n"
-        f"<style>{REPORT_CSS}</style>\n"
+        f"<style>{REPORT_CSS}{report_theme_css()}</style>\n"
         "</head>\n<body>\n"
         f'<div class="wb-report">{body}{footer}</div>\n'
         "</body>\n</html>"
@@ -312,11 +313,11 @@ def render_comparison_report_html(spec: ComparisonReportSpec) -> str:
         generated_at=spec.generated_at,
         status_label=f"База: {spec.baseline_label}",
         status_severity="info",
-        config_summary=f"Сравнение {len(spec.variants)} вариантов · id базы {spec.baseline_id}",
+        config_summary=f"Сравнение {len(spec.variants)} вариантов",
     )
     variants_html = render_bullets(
         [
-            f"{line.label}{' (база)' if line.is_baseline else ''} · id {line.variant_id}"
+            f"{line.label}{' (база)' if line.is_baseline else ''}"
             for line in spec.variants
         ]
     )

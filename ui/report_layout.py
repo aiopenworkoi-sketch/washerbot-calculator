@@ -239,6 +239,36 @@ body {
 """
 
 
+
+DARK_REPORT_CSS = """
+body { background: #071225 !important; color: #E5E7EB !important; }
+.wb-report { background: #0B1B33 !important; border-color: #24344F !important; color: #E5E7EB !important; }
+.wb-report-cover { border-bottom-color: #24344F !important; }
+.wb-report h1, .wb-report h2, .wb-report h3,
+.wb-report p, .wb-report li, .wb-report span, .wb-report strong,
+.wb-report .subtitle, .wb-report .wb-exec-headline { color: #E5E7EB !important; }
+.wb-report .subtitle, .wb-report .wb-kpi-label, .wb-report .wb-kpi-hint,
+.wb-report .wb-config-line, .wb-report .wb-appendix-label,
+.wb-report .wb-disclaimer, .wb-report .wb-print-footer { color: #93A4BF !important; }
+.wb-report .wb-section { border-color: #24344F !important; }
+.wb-report .wb-kpi { background: #101C33 !important; border-color: #24344F !important; }
+.wb-report .wb-kpi-value { color: #FFFFFF !important; }
+.wb-report .wb-table th { background: #101C33 !important; color: #E5E7EB !important; border-color: #24344F !important; }
+.wb-report .wb-table td { color: #D7DEE8 !important; border-color: #1E2C44 !important; }
+.wb-report .wb-table tr:nth-child(even) td { background: #0E1B30 !important; }
+.wb-report a { color: #8FC2FF !important; }
+.wb-report .wb-report-badge { background: #101C33 !important; border-color: #24344F !important; color: #E5E7EB !important; }
+.wb-report .wb-memo-group { background: #101C33 !important; border-color: #24344F !important; }
+.wb-report hr { border-color: #24344F !important; }
+"""
+
+
+def report_theme_css() -> str:
+    """Дополнительный CSS отчёта: тёмная тема — тёмный документ."""
+    from ui.theme_tokens import is_light
+
+    return "" if is_light() else DARK_REPORT_CSS
+
 def _esc(text: str) -> str:
     return html.escape(text, quote=True)
 

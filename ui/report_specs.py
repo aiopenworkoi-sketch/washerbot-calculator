@@ -482,7 +482,7 @@ def build_comparison_factual_bullets(
         leaders.add(fastest.variant_id)
     if len(leaders) > 1:
         bullets.append(
-            "Trade-offs смешанные: лидеры по NPV, IRR, окупаемости и equity могут различаться."
+            "Лидеры разные: по чистой стоимости, доходности и сроку возврата выигрывают разные варианты — единого лучшего нет."
         )
     elif baseline.variant_id not in leaders and leaders:
         bullets.append(

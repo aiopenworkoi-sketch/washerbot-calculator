@@ -58,6 +58,13 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
         border: 1px solid {t['border']} !important;
     }}
 
+
+    [data-testid="stSidebarCollapseButton"] button *,
+    [data-testid="stExpandSidebarButton"] *, [data-testid="stExpandSidebarButton"] button * {{
+        color: {t['text2']} !important;
+        fill: {t['text2']} !important;
+        opacity: 1 !important;
+    }}
     /* ============ ТЕКСТ ============ */
     [data-testid="stMarkdownContainer"],
     [data-testid="stMarkdownContainer"] :is(p, li, span, h1, h2, h3, h4, h5, h6, strong, em) {{
@@ -195,6 +202,66 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
     }}
     [data-testid="stBaseButton-primary"]:hover * {{ color: {t['bg']} !important; }}
 
+
+    /* disabled/loading состояние primary-кнопки */
+    .stButton > button[kind="primary"]:disabled,
+    .stButton > button[kind="primary"][disabled],
+    [data-testid="stBaseButton-primary"]:disabled,
+    [data-testid="stBaseButton-primary"][disabled] {{
+        background: {t['primary']} !important;
+        border-color: {t['primary']} !important;
+        color: {t['on_primary']} !important;
+        opacity: 1 !important;
+    }}
+    .stButton > button[kind="primary"]:disabled *,
+    [data-testid="stBaseButton-primary"]:disabled * {{
+        color: {t['on_primary']} !important;
+    }}
+
+
+    /* primary: базовое состояние (атрибут kind, а не testid) */
+    .stButton > button[kind="primary"],
+    button[kind="primary"],
+    [data-testid="stButton"] button[kind="primary"] {{
+        background: {t['primary']} !important;
+        border-color: {t['primary']} !important;
+        color: {t['on_primary']} !important;
+    }}
+    .stButton > button[kind="primary"] *,
+    button[kind="primary"] * {{
+        color: {t['on_primary']} !important;
+    }}
+    /* primary: hover / active / focus — тёмное золото с белым текстом */
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[kind="primary"]:active,
+    .stButton > button[kind="primary"]:focus-visible,
+    button[kind="primary"]:hover,
+    button[kind="primary"]:active,
+    button[kind="primary"]:focus-visible {{
+        background: {t['accent']} !important;
+        border-color: {t['accent']} !important;
+        color: #FFFFFF !important;
+    }}
+    .stButton > button[kind="primary"]:hover *,
+    .stButton > button[kind="primary"]:active *,
+    button[kind="primary"]:hover *,
+    button[kind="primary"]:active * {{
+        color: #FFFFFF !important;
+    }}
+
+    /* primary: убираем прозрачность disabled/loading, чтобы текст не «серел» */
+    .stButton > button[kind="primary"],
+    button[kind="primary"],
+    [data-testid="stBaseButton-primary"] {{ opacity: 1 !important; }}
+    .stButton > button[kind="primary"] *,
+    button[kind="primary"] *,
+    [data-testid="stBaseButton-primary"] * {{ opacity: 1 !important; }}
+    .stButton > button[kind="primary"]:disabled,
+    button[kind="primary"]:disabled,
+    [data-testid="stBaseButton-primary"]:disabled {{
+        opacity: 1 !important;
+        color: {t['on_primary']} !important;
+    }}
     /* ============ ТАБЫ ============ */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{
         border-bottom: 1px solid {t['border_subtle']} !important;
@@ -296,6 +363,29 @@ def build_light_shell_css(brand: Mapping[str, str]) -> str:
     table.wb-table tbody tr:nth-child(even) td {{ background: {rgba(t['surface'], 0.55)}; }}
     table.wb-table tbody tr:hover td {{ background: {rgba(t['primary'], 0.06)}; }}
 
+
+    /* === ЧЕКБОКСЫ / ТУМБЛЕРЫ: checked-состояние по теме === */
+    label[data-baseweb=checkbox] > span,
+    label[data-baseweb=radio] > span {{
+        background: {t['surface2']} !important;
+        border-color: {t['border']} !important;
+    }}
+    label[data-baseweb=checkbox]:has(input:checked) > span,
+    label[data-baseweb=radio]:has(input:checked) > span {{
+        background: {t['primary']} !important;
+        border-color: {t['primary']} !important;
+    }}
+    label[data-baseweb=checkbox]:has(input:checked) > span svg,
+    label[data-baseweb=radio]:has(input:checked) > span svg {{
+        fill: {t['on_primary']} !important;
+        color: {t['on_primary']} !important;
+    }}
+
+    /* === РАЗДЕЛИТЕЛИ === */
+    hr, [data-testid=stDivider] {{
+        border-color: {t['border_subtle']} !important;
+        background: {t['border_subtle']} !important;
+    }}
     /* ============ СКРОЛЛБАРЫ ============ */
     * {{ scrollbar-width: thin; scrollbar-color: {t['border']} transparent; }}
     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
