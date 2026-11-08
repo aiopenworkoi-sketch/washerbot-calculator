@@ -5,7 +5,7 @@ from typing import Tuple
 
 from domain.results import ProResult
 from ui.display_fallbacks import is_missing_payback_months
-from ui.format_policies import format_kpi_npv_compact, format_kpi_payback
+from ui.format_policies import PAYBACK_GOOD_MONTHS, format_kpi_npv_compact, format_kpi_payback
 from ui.model_constants import format_npv_discount_rate_label
 from ui.recommendation_specs import AdvisoryItemSpec, build_pro_recommendation_specs
 from ui.ui_labels import ADVISORY_CSS_MAP, MemoGroupTitles, UIClassNames
@@ -52,7 +52,7 @@ def _memo_headline(res: ProResult) -> Tuple[str, str]:
         return (
             f"Базовый сценарий: окупаемость {format_kpi_payback(res.payback_months)}, "
             f"NPV {format_kpi_npv_compact(res.npv)}",
-            "good" if res.payback_months <= 36 else "info",
+            "good" if res.payback_months <= PAYBACK_GOOD_MONTHS else "info",
         )
     if res.npv > 0:
         return (

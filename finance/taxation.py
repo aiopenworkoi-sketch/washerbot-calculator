@@ -94,12 +94,20 @@ def calculate_tax_for_year(
     *,
     insurance_year: float = 0.0,
     patent_cost_month: float | None = None,
+    vat_input_base_year: float = 0.0,
 ) -> Dict[str, float]:
     policy = get_tax_policy_for_year(year)
     rev = max(0.0, float(revenue_year))
     prof = float(taxable_profit_year)
     regime = str(tax_regime)
-    result = {"tax": 0.0, "vat": 0.0, "total": 0.0, "regime": regime, "year": policy.year}
+    result = {
+        "tax": 0.0,
+        "vat": 0.0,
+        "total": 0.0,
+        "fixed": 0.0,
+        "regime": regime,
+        "year": policy.year,
+    }
 
     if regime == "USN_INCOME":
         tax = _usn_income_tax(rev, insurance_year, policy)
@@ -125,13 +133,22 @@ def calculate_tax_for_year(
         result["tax"] = max(0.0, tax)
         result["vat"] = 0.0
         result["total"] = result["tax"]
+        # Патент — фиксированный платёж: начисляется и при нулевой выручке
+        result["fixed"] = result["tax"]
         return result
 
     if regime == "OSNO":
-        tax = calculate_profit_tax(prof, policy.year)
-        vat = rev * policy.osno_vat_rate
+        # Цены в модели — с НДС, поэтому НДС считается «изнутри» (r/(1+r)),
+        # а к уплате идёт разница между исходящим и входящим НДС.
+        rate = max(0.0, policy.osno_vat_rate)
+        output_vat = rev * rate / (1.0 + rate)
+        input_vat = max(0.0, float(vat_input_base_year)) * rate / (1.0 + rate)
+        vat = max(0.0, output_vat - input_vat)
+        # Прибыль в модели посчитана на «грязной» выручке — очищаем базу от НДС
+        taxable = max(0.0, prof - vat)
+        tax = calculate_profit_tax(taxable, policy.year)
         result["tax"] = tax
-        result["vat"] = max(0.0, vat)
+        result["vat"] = vat
         result["total"] = max(0.0, tax + vat)
         return result
 
@@ -160,6 +177,7 @@ def calculate_monthly_tax_schedule(
     start_year: int = TAX_MODEL_BASELINE_YEAR,
     insurance_month: float = 0.0,
     patent_cost_month: float | None = None,
+    vat_input_base_month: np.ndarray | None = None,
 ) -> np.ndarray:
     rev = np.asarray(revenue_month, dtype=float)
     prof = np.asarray(taxable_profit_month, dtype=float)
@@ -167,6 +185,12 @@ def calculate_monthly_tax_schedule(
         raise ValueError("revenue_month and taxable_profit_month must have the same shape")
 
     h = rev.size
+    if vat_input_base_month is not None:
+        vat_input_base = np.asarray(vat_input_base_month, dtype=float)
+        if vat_input_base.shape != rev.shape:
+            raise ValueError("vat_input_base_month must have the same shape as revenue_month")
+    else:
+        vat_input_base = None
     years = build_calendar_year_schedule(start_year, h)
     tax_month = np.zeros(h, dtype=float)
     n_years = (h + 11) // 12
@@ -182,6 +206,13 @@ def calculate_monthly_tax_schedule(
             year=year,
             insurance_year=insurance_year,
             patent_cost_month=patent_cost_month,
+            vat_input_base_year=(
+                float(np.sum(vat_input_base[:i1])) - float(np.sum(vat_input_base[:i0]))
+                if vat_input_base is not None else 0.0
+            ),
         )
-        tax_month[i0:i1] = _allocate_annual_tax(rev[i0:i1], annual["total"])
+        fixed = max(0.0, float(annual.get("fixed", 0.0)))
+        variable = max(0.0, float(annual["total"]) - fixed)
+        months = max(1, i1 - i0)
+        tax_month[i0:i1] = _allocate_annual_tax(rev[i0:i1], variable) + fixed / months
     return np.maximum(tax_month, 0.0)

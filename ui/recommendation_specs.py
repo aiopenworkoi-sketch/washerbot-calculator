@@ -20,6 +20,8 @@ from data.catalogs import WASHER_CATALOG
 from data.washer_access import get_washer_model
 from domain.results import ProResult, SimpleResult
 from ui.format_policies import (
+    PAYBACK_EXCELLENT_MONTHS,
+    PAYBACK_LONG_MONTHS,
     format_kpi_margin_ratio,
     format_kpi_npv_compact,
     format_kpi_payback,
@@ -31,6 +33,7 @@ from ui.renderers import (
     fmt_ratio_pct,
 )
 from ui.ui_labels import ADVISORY_CSS_MAP, ADVISORY_ICON_MAP
+from ui.model_constants import format_npv_discount_rate_label
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,7 @@ def build_simple_payback_hint_spec(res: SimpleResult) -> AdvisoryItemSpec:
                 "Попробуйте увеличить трафик, поднять цены или сократить инвестиции."
             ),
         )
-    if res.payback_months > 60:
+    if res.payback_months > PAYBACK_LONG_MONTHS:
         return AdvisoryItemSpec(
             key="payback",
             severity="warn",
@@ -60,7 +63,7 @@ def build_simple_payback_hint_spec(res: SimpleResult) -> AdvisoryItemSpec:
                 "превышает 5 лет. Рассмотрите снижение CAPEX или увеличение трафика."
             ),
         )
-    if res.payback_months < 24:
+    if res.payback_months <= PAYBACK_EXCELLENT_MONTHS:
         return AdvisoryItemSpec(
             key="payback",
             severity="good",
@@ -158,13 +161,13 @@ def build_pro_recommendation_specs(res: ProResult) -> Tuple[AdvisoryItemSpec, ..
             severity="bad",
             text="Проект не окупается на горизонте — пересмотрите модель.",
         ))
-    elif res.payback_months < 30:
+    elif res.payback_months <= PAYBACK_EXCELLENT_MONTHS:
         specs.append(AdvisoryItemSpec(
             key="payback",
             severity="good",
             text=f"Отличная окупаемость — {format_kpi_payback(res.payback_months)}.",
         ))
-    elif res.payback_months > 60:
+    elif res.payback_months > PAYBACK_LONG_MONTHS:
         specs.append(AdvisoryItemSpec(
             key="payback",
             severity="warn",
@@ -195,7 +198,7 @@ def build_pro_recommendation_specs(res: ProResult) -> Tuple[AdvisoryItemSpec, ..
             severity="bad",
             text=(
                 f"NPV отрицательный ({format_kpi_npv_compact(res.npv)}) — "
-                "проект уничтожает стоимость при ставке 18%."
+                f"проект уничтожает стоимость при ставке {format_npv_discount_rate_label()}."
             ),
         ))
 

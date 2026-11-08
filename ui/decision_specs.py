@@ -20,6 +20,7 @@ from ui.view_guards import (
     should_render_pessimistic_payback_success,
     should_render_pessimistic_payback_warning,
 )
+from ui.model_constants import format_npv_discount_rate_label
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ def build_executive_verdict_spec(res: ProResult) -> ExecutiveVerdictSpec:
         headline = "Проект не окупается на выбранном горизонте"
         severity = "bad"
     elif res.npv <= 0:
-        headline = "NPV отрицательный при ставке 18% — инвестиция не проходит порог"
+        headline = f"NPV отрицательный при ставке {format_npv_discount_rate_label()} — инвестиция не проходит порог"
         severity = "bad"
     else:
         headline = "Положительный NPV, срок окупаемости требует внимания"

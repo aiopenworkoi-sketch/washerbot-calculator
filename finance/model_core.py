@@ -13,9 +13,9 @@ from finance.capacity import (
     estimate_daily_capacity,
     estimate_monthly_capacity,
 )
-from finance.opex import calculate_water_cost_per_m3
 from finance.program_mix import compute_program_mix
 from finance.seasonality import build_seasonality_factors
+from finance.tariffs import effective_tariffs, nv_coefficient
 from finance.var_cost_per_wash import compute_var_cost_per_wash
 
 
@@ -40,11 +40,15 @@ def _calculate_pro_core(params: ProParams, traffic_factor: float = 1.0) -> Dict[
         n_robots=params.n_robots,
     )
 
-    water_cost_per_m3 = calculate_water_cost_per_m3(
-        supply=region.water_supply,
-        sewage=region.water_sewage,
-        profile=params.water_discharge_profile,
+    tariffs = effective_tariffs(
+        region,
+        water_supply_override=getattr(params, 'water_supply_override', None),
+        water_sewage_override=getattr(params, 'water_sewage_override', None),
+        elec_price_override=getattr(params, 'elec_price_override', None),
     )
+    # Плата за НВ на ЦСВ считается отдельной строкой OPEX, поэтому в стоимости
+    # воды остаются только водоснабжение и водоотведение.
+    water_cost_per_m3 = tariffs.water_supply + tariffs.water_sewage
 
     # Оборотная вода: доля не может быть меньше 0 и больше 0.95, иначе стоимость
     # воды уходит в минус и проект «зарабатывает» на расходе.
@@ -54,7 +58,7 @@ def _calculate_pro_core(params: ProParams, traffic_factor: float = 1.0) -> Dict[
         model=model,
         mix=mix,
         water_cost_per_m3=water_cost_per_m3,
-        elec_price=region.elec_price,
+        elec_price=tariffs.elec_price,
         extra_dryers_enabled=params.extra_dryers_enabled,
         water_recycle_factor=(1.0 - eco_recycle_pct),
         chem_premium_factor=1.15 if params.eco_chem_premium else 1.0,
@@ -93,4 +97,17 @@ def _calculate_pro_core(params: ProParams, traffic_factor: float = 1.0) -> Dict[
         # экономия воды и переплата за химию считались по фактическому расходу.
         "avg_water_factor": mix.avg_water_factor,
         "avg_chem_factor": mix.avg_chem_factor,
+        # Для строки «НВ на ЦСВ»: объём стоков на мойку и тариф водоотведения
+        "water_m3_per_wash": (
+            model.water_per_wash_l / 1000.0
+            * mix.avg_water_factor
+            * (1.0 - eco_recycle_pct)
+        ),
+        "sewage_tariff": tariffs.water_sewage,
+        "water_supply_tariff": tariffs.water_supply,
+        "elec_tariff": tariffs.elec_price,
+        "nv_coefficient": nv_coefficient(
+            norm_enabled=bool(getattr(params, "nv_norm_enabled", False)),
+            over_enabled=bool(getattr(params, "nv_over_enabled", False)),
+        ),
     }

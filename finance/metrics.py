@@ -87,14 +87,3 @@ def calculate_payback(cumulative_cf: np.ndarray) -> float:
     return float("nan")
 
 
-def calculate_discounted_payback(
-    cashflows: np.ndarray, discount_rate_annual: float
-) -> float:
-    """Дисконтированный срок окупаемости в месяцах."""
-    if len(cashflows) < 2:
-        return float("nan")
-    monthly_rate = (1 + discount_rate_annual) ** (1/12) - 1
-    periods = np.arange(len(cashflows))
-    discounted = cashflows / (1 + monthly_rate) ** periods
-    cumulative = np.cumsum(discounted)
-    return calculate_payback(cumulative)

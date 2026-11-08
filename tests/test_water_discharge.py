@@ -84,10 +84,22 @@ def test_extra_dryers_increase_electricity_opex() -> None:
     assert dry_res.npv < base_res.npv
 
 
-def test_typical_profile_increases_water_opex_vs_legacy() -> None:
-    legacy = build_sample_simple_params()
-    typical = replace(legacy, water_discharge_profile=WATER_PROFILE_TYPICAL_CAR_WASH_LT30)
-    assert calculate_simple(typical).npv < calculate_simple(legacy).npv
+def test_nv_flags_increase_opex_vs_baseline() -> None:
+    """Плата за НВ на ЦСВ и сверхнорматив — отдельные строки, снижают NPV."""
+    base = build_sample_simple_params()
+    with_norm = replace(base, nv_norm_enabled=True)
+    with_both = replace(base, nv_norm_enabled=True, nv_over_enabled=True)
+    assert calculate_simple(with_norm).npv < calculate_simple(base).npv
+    assert calculate_simple(with_both).npv < calculate_simple(with_norm).npv
+
+
+def test_nv_coefficient_values() -> None:
+    from finance.tariffs import nv_coefficient
+
+    assert nv_coefficient(norm_enabled=False, over_enabled=False) == 0.0
+    assert nv_coefficient(norm_enabled=True, over_enabled=False) == 0.5
+    assert nv_coefficient(norm_enabled=False, over_enabled=True) == 2.0
+    assert nv_coefficient(norm_enabled=True, over_enabled=True) == 2.5
 
 
 def test_invalid_water_profile_rejected() -> None:

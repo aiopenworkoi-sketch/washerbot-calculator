@@ -95,10 +95,6 @@ def build_ordered_sensitivity_result(
     return ordered
 
 
-def clone_params_with_overrides(params: ProParams, **overrides) -> ProParams:
-    return replace(params, **overrides)
-
-
 def evaluate_pro_sensitivity_case(params: ProParams) -> float:
     """
     Returns NPV for a ProParams case using the same capped/tax-aware path
@@ -129,7 +125,14 @@ def evaluate_pro_sensitivity_case(params: ProParams) -> float:
         params.rent_month + params.utilities_extra + params.security_month
         + params.marketing_month + params.maintenance_month
         + params.insurance_month + params.other_opex
+        + float(getattr(params, "property_tax_month", 0.0))
+        + float(getattr(params, "land_tax_month", 0.0))
+        + float(getattr(params, "ip_contributions_month", 0.0))
     )
+    # Плата за НВ на ЦСВ — та же формула, что в основном расчёте (app.calculate_pro)
+    nv_per_m3 = float(core.get("sewage_tariff", 0.0)) * float(core.get("nv_coefficient", 0.0))
+    nv_month = nv_per_m3 * core["cars_per_month"] * float(core.get("water_m3_per_wash", 0.0))
+    opex = opex + nv_month
 
     if credit_active and credit_used > 0:
         sched = calculate_credit_schedule(
@@ -156,13 +159,22 @@ def evaluate_pro_sensitivity_case(params: ProParams) -> float:
 
     ebitda = rev - var - opex - salary
     ebt = ebitda - ci - amort
+    vat_base = (
+        core["cars_per_month"]
+        * (core["cost_water_per_wash"] + core["cost_elec_per_wash"] + core["cost_chem_per_wash"])
+        + np.full(h, params.utilities_extra + params.rent_month)
+    )
     tax = calculate_monthly_tax_schedule(
         revenue_month=rev,
         taxable_profit_month=ebt,
         tax_regime=params.tax_regime,
         start_year=TAX_MODEL_BASELINE_YEAR,
         insurance_month=ins_a + ins_m,
-        patent_cost_month=patent_cost_month_for_region(params.region_key),
+        patent_cost_month=patent_cost_month_for_region(
+            params.region_key,
+            headcount=1 + params.n_admins + params.n_managers,
+        ),
+        vat_input_base_month=vat_base,
     )
     profit = ebt - tax
     cf_op = profit + amort - cp
@@ -170,6 +182,11 @@ def evaluate_pro_sensitivity_case(params: ProParams) -> float:
     cf = np.zeros(h + 1)
     cf[0] = -own_funds
     cf[1:] = cf_op
+    if bool(getattr(params, "include_terminal_value", False)) and h >= 12:
+        last_year_ebitda = float(np.sum(ebitda[-12:]))
+        terminal = max(0.0, float(getattr(params, "terminal_multiple", 3.0)) * last_year_ebitda)
+        if terminal > 0:
+            cf[-1] += terminal
     return calculate_npv(cf, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
 
 

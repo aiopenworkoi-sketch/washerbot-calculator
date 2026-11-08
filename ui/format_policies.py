@@ -58,12 +58,20 @@ def format_sensitivity_bar_percent(value: float) -> str:
     return fmt_percent_value(value)
 
 
+# Единая шкала оценки окупаемости (мес.) — используется во всех блоках UI
+PAYBACK_EXCELLENT_MONTHS = 30
+PAYBACK_GOOD_MONTHS = 36
+PAYBACK_LONG_MONTHS = 60
+
+
 def kpi_payback_status(payback_months: float) -> str:
     if not has_finite_payback_months(payback_months):
         return "bad"
-    if payback_months < 36:
+    if payback_months <= PAYBACK_EXCELLENT_MONTHS:
         return "good"
-    if payback_months < 60:
+    if payback_months <= PAYBACK_GOOD_MONTHS:
+        return "good"
+    if payback_months <= PAYBACK_LONG_MONTHS:
         return "warn"
     return "bad"
 

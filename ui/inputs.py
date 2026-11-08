@@ -15,17 +15,20 @@ from data.washer_access import supports_extra_dryers
 from domain.models import WashProgram
 from domain.params import ProParams, SimpleParams
 from finance.taxes import TAX_REGIMES_LABELS
+from finance.tariffs import nv_coefficient, nv_mode_label
 from ui.branding import sidebar_logo_html
 from ui.model_display import format_effective_power_kw
 from ui.presentation_mode import render_presentation_sidebar_marker
 from ui.renderers import fmt_money
 from ui.scenario_ui import render_scenario_sidebar_block
-from ui.water_discharge_ui import (
-    render_water_discharge_profile_selector,
-    render_water_discharge_usage_guardrail,
-)
+from ui.water_discharge_ui import render_water_discharge_usage_guardrail
 from ui.ui_labels import SidebarSections, format_sidebar_heading
 
+
+
+def _num2(value: float) -> str:
+    """Число с двумя знаками и запятой: 73.79 → «73,79»."""
+    return f"{float(value):.2f}".replace(".", ",")
 
 def render_sidebar_simple() -> SimpleParams:
     """Рендер сайдбара простого режима. Возвращает SimpleParams."""
@@ -87,10 +90,46 @@ def render_sidebar_simple() -> SimpleParams:
         region_key = region_options[region_labels.index(selected_reg)]
         reg = REGIONS[region_key]
         st.caption(
-            f"Вода: {reg.water_supply:.0f}+{reg.water_sewage:.0f} ₽/м³ · "
-            f"Электр.: {reg.elec_price:.1f} ₽/кВт·ч"
+            f"Вода (с НДС): {_num2(reg.water_supply)}+{_num2(reg.water_sewage)} ₽/м³ · "
+            f"Электр. (с НДС): {_num2(reg.elec_price)} ₽/кВт·ч"
         )
-        water_discharge_profile = render_water_discharge_profile_selector(key_prefix="s")
+
+        with st.expander("Тарифы из счёта (необязательно)", expanded=False):
+            water_supply = st.number_input(
+                "Вода, ₽/м³ (с НДС)",
+                min_value=0.0, value=float(reg.water_supply), step=0.5, format="%.2f",
+                key=f"s_water_supply_{region_key}",
+            )
+            water_sewage = st.number_input(
+                "Водоотведение, ₽/м³ (с НДС)",
+                min_value=0.0, value=float(reg.water_sewage), step=0.5, format="%.2f",
+                key=f"s_water_sewage_{region_key}",
+            )
+            elec_price = st.number_input(
+                "Электроэнергия, ₽/кВт·ч (с НДС)",
+                min_value=0.0, value=float(reg.elec_price), step=0.1, format="%.2f",
+                key=f"s_elec_price_{region_key}",
+            )
+
+        nv_norm_enabled = st.checkbox(
+            "НВ на ЦСВ — 0,5 × тариф водоотведения (п. 123(4))",
+            value=False, key="s_nv_norm",
+            help="П = 0,5 × тариф водоотведения × объём стоков (объекты < 30 м³/сутки или без контрольного колодца).",
+        )
+        nv_over_enabled = st.checkbox(
+            "Сверх норматива — 2,0 × тариф водоотведения (п. 203)",
+            value=False, key="s_nv_over",
+            help="П = 2,0 × тариф водоотведения × объём стоков (сброс сверх нормативов состава). Оба платежа могут начисляться одновременно.",
+        )
+        nv_coef_preview = nv_coefficient(
+            norm_enabled=nv_norm_enabled, over_enabled=nv_over_enabled
+        )
+        st.caption(
+            f"НВ: {nv_mode_label(norm_enabled=nv_norm_enabled, over_enabled=nv_over_enabled)} · "
+            f"{str(nv_coef_preview).replace('.', ',')} × {_num2(water_sewage)} = "
+            f"{_num2(nv_coef_preview * water_sewage)} ₽/м³ стоков"
+        )
+        water_discharge_profile = "basic"
 
         # ──────────────────────────────────────
         st.markdown(format_sidebar_heading(SidebarSections.INVESTMENT), unsafe_allow_html=True)
@@ -125,6 +164,13 @@ def render_sidebar_simple() -> SimpleParams:
 
         # Подсказка по загрузке
         max_cars = model.cars_per_hour * 24
+        water_m3_day = float(cars_per_day_avg) * float(model.water_per_wash_l) / 1000.0
+        if water_m3_day > 30.0:
+            st.warning(
+                f"Расход воды ≈ {str(round(water_m3_day, 1)).replace('.', ',')} м³/сутки — "
+                "больше 30 м³/сутки. Для таких объектов водоканал чаще применяет расчёт по декларации."
+            )
+
         load_pct = cars_per_day_avg / max_cars
         if load_pct > 0.7:
             st.warning(f"Загрузка {load_pct*100:.0f}% — близко к пределу")
@@ -168,10 +214,22 @@ def render_sidebar_simple() -> SimpleParams:
                     share_default=share / 100.0,
                 ))
 
-        # Нормализация долей
+        # Нормализация долей: явное предупреждение + кнопка, без молчаливого пересчёта
         total_share = sum(p.share_default for p in programs)
         if total_share > 0 and abs(total_share - 1.0) > 0.001:
-            st.caption(f"Сумма долей: {total_share*100:.0f}% — нормализуется автоматически")
+            st.warning(
+                f"Сумма долей {total_share*100:.0f}% ≠ 100% — в расчёте доли нормализуются. "
+                "Поправьте слайдеры или нажмите кнопку."
+            )
+            if st.button("Нормализовать доли", key="s_normalize_shares"):
+                raw = [p.share_default / total_share * 100 for p in programs]
+                snapped = [max(0, int(round(v / 5.0)) * 5) for v in raw]
+                diff = 100 - sum(snapped)
+                if snapped:
+                    snapped[0] = max(0, snapped[0] + diff)
+                for prog, value in zip(programs, snapped):
+                    st.session_state[f"s_prog_share_{prog.code}"] = int(value)
+                st.rerun()
             programs = [
                 WashProgram(
                     code=p.code, name=p.name, price_rub=p.price_rub,
@@ -189,7 +247,7 @@ def render_sidebar_simple() -> SimpleParams:
         admin_salary = st.number_input(
             "ЗП администратора, ₽/мес (gross)",
             min_value=0,
-            value=60_000,
+            value=120_000,
             step=5_000,
             key="s_admin_salary",
             help="1 администратор на площадку. Включая будущий НДФЛ и страховые взносы.",
@@ -199,7 +257,7 @@ def render_sidebar_simple() -> SimpleParams:
         st.markdown(format_sidebar_heading(SidebarSections.FIXED_COSTS), unsafe_allow_html=True)
 
         # Аренда — подсказка от модели
-        suggested_rent = int(reg.rent_per_m2 * model.space_required_m2 * n_robots)
+        suggested_rent = 150_000
         rent_month = st.number_input(
             "Аренда, ₽/мес",
             min_value=0,
@@ -239,6 +297,10 @@ def render_sidebar_simple() -> SimpleParams:
             key="s_horizon",
         )
         horizon_months = horizon_years * 12
+        amort_years_simple = st.slider(
+            "Срок амортизации, лет", 3, 10, 5, 1, key="s_amort",
+            help="Влияет на налог (УСН «Д−Р» и ОСНО): амортизация уменьшает базу",
+        )
 
         simple_params_preview = SimpleParams(
             model_code=model_code,
@@ -254,7 +316,13 @@ def render_sidebar_simple() -> SimpleParams:
             other_fixed=float(other_fixed),
             tax_regime=tax_regime,
             horizon_months=horizon_months,
+            amort_years_equipment=amort_years_simple,
             water_discharge_profile=water_discharge_profile,
+            water_supply_override=float(water_supply),
+            water_sewage_override=float(water_sewage),
+            elec_price_override=float(elec_price),
+            nv_norm_enabled=nv_norm_enabled,
+            nv_over_enabled=nv_over_enabled,
         )
         render_scenario_sidebar_block("simple", simple_params_preview)
 
@@ -311,14 +379,74 @@ def render_sidebar_pro() -> ProParams:
         )
         region_key = region_options[region_labels.index(selected_reg)]
         reg = REGIONS[region_key]
-        st.caption(f"Вода: {reg.water_supply:.0f}+{reg.water_sewage:.0f} ₽/м³ · Эл.: {reg.elec_price:.1f} ₽/кВт·ч")
-        water_discharge_profile = render_water_discharge_profile_selector(key_prefix="p")
+        st.caption(
+            f"Вода (с НДС): {_num2(reg.water_supply)}+{_num2(reg.water_sewage)} ₽/м³ · "
+            f"Эл. (с НДС): {_num2(reg.elec_price)} ₽/кВт·ч"
+        )
+
+        with st.expander("Тарифы из счёта (необязательно)", expanded=False):
+            st.caption(
+                "По умолчанию — тариф региона (ориентир). Вставьте цифры из счёта "
+                "водоканала и энергосбыта — они пойдут в расчёт как есть, с НДС."
+            )
+            water_supply = st.number_input(
+                "Вода, ₽/м³ (с НДС)",
+                min_value=0.0, value=float(reg.water_supply), step=0.5, format="%.2f",
+                key=f"p_water_supply_{region_key}",
+            )
+            water_sewage = st.number_input(
+                "Водоотведение, ₽/м³ (с НДС)",
+                min_value=0.0, value=float(reg.water_sewage), step=0.5, format="%.2f",
+                key=f"p_water_sewage_{region_key}",
+            )
+            elec_price = st.number_input(
+                "Электроэнергия, ₽/кВт·ч (с НДС)",
+                min_value=0.0, value=float(reg.elec_price), step=0.1, format="%.2f",
+                key=f"p_elec_price_{region_key}",
+            )
+
+        # ── НВ на ЦСВ и сверхнормативный сброс ──
+        nv_norm_enabled = st.checkbox(
+            "НВ на ЦСВ — 0,5 × тариф водоотведения (п. 123(4))",
+            value=False,
+            key="p_nv_norm",
+            help=(
+                "Плата за негативное воздействие на работу ЦСВ для объектов "
+                "менее 30 м³/сутки или без контрольного колодца. "
+                "П = 0,5 × тариф водоотведения × объём стоков."
+            ),
+        )
+        nv_over_enabled = st.checkbox(
+            "Сверх норматива — 2,0 × тариф водоотведения (п. 203)",
+            value=False,
+            key="p_nv_over",
+            help=(
+                "Плата за сброс загрязняющих веществ сверх нормативов состава "
+                "сточных вод. П = 2,0 × тариф водоотведения × объём стоков. "
+                "Оба платежа могут начисляться одновременно — 2,5 ×."
+            ),
+        )
+        nv_coef_preview = nv_coefficient(
+            norm_enabled=nv_norm_enabled, over_enabled=nv_over_enabled
+        )
+        nv_label = nv_mode_label(norm_enabled=nv_norm_enabled, over_enabled=nv_over_enabled)
+        nv_rub_preview = nv_coef_preview * float(water_sewage)
+        st.caption(
+            f"НВ: {nv_label} · {str(nv_coef_preview).replace('.', ',')} × {_num2(water_sewage)} = "
+            f"{_num2(nv_rub_preview)} ₽/м³ стоков"
+        )
+        if nv_coef_preview > 0:
+            st.caption(
+                "Нормативы состава сточных вод устанавливает местная администрация — "
+                "уточните в водоканале, действуют ли они для вашей точки."
+            )
+        water_discharge_profile = "basic"
 
         # ── CAPEX по статьям ──
         st.markdown(format_sidebar_heading(SidebarSections.CAPEX), unsafe_allow_html=True)
 
         # Подсказка по оборудованию
-        equip_default = int(model.price_rub * n_robots)
+        equip_default = 6_000_000
         capex_equipment = st.number_input(
             "Оборудование (роботы), ₽",
             min_value=0, value=equip_default, step=500_000,
@@ -327,7 +455,7 @@ def render_sidebar_pro() -> ProParams:
         )
         capex_construction = st.number_input(
             "СМР, фундамент, навес, ₽",
-            min_value=0, value=2_500_000, step=100_000, key="p_capex_smr",
+            min_value=0, value=15_000_000, step=500_000, key="p_capex_smr",
         )
         capex_engineering = st.number_input(
             "Инженерные сети (вода/эл-во/слив), ₽",
@@ -368,7 +496,7 @@ def render_sidebar_pro() -> ProParams:
             )
             credit_rate = st.slider(
                 "Ставка, % годовых",
-                5.0, 30.0, 22.0, 0.5, key="p_credit_rate",
+                5.0, 30.0, 20.0, 0.5, key="p_credit_rate",
             ) / 100.0
             credit_term = st.slider(
                 "Срок, мес", 12, 84, 48, 6, key="p_credit_term",
@@ -455,7 +583,7 @@ def render_sidebar_pro() -> ProParams:
 
         # ── OPEX ──
         st.markdown(format_sidebar_heading(SidebarSections.OPEX), unsafe_allow_html=True)
-        suggested_rent = int(reg.rent_per_m2 * model.space_required_m2 * n_robots)
+        suggested_rent = 150_000
         rent = st.number_input(
             "Аренда, ₽/мес", min_value=0, value=suggested_rent, step=10_000,
             key="p_rent",
@@ -482,8 +610,35 @@ def render_sidebar_pro() -> ProParams:
             min_value=0, value=int(capex_equipment * 0.005 / 12), step=1_000,
             key="p_insurance",
         )
+        if st.button(
+            "Подставить расходы под число роботов",
+            key="p_sync_robots",
+            help="Пересчитает CAPEX оборудования, аренду, ТО и страховку под текущее число роботов",
+        ):
+            st.session_state["p_capex_equip"] = int(model.price_rub * n_robots)
+            st.session_state["p_rent"] = int(reg.rent_per_m2 * model.space_required_m2 * n_robots)
+            st.session_state["p_maint"] = int(8_000 * n_robots)
+            st.rerun()
         other_opex = st.number_input(
             "Прочее, ₽/мес", min_value=0, value=10_000, step=2_000, key="p_other_opex",
+        )
+        with st.expander("Налоги на имущество, землю и взносы ИП", expanded=False):
+            property_tax = st.number_input(
+                "Налог на имущество, ₽/мес", min_value=0, value=0, step=1_000,
+                key="p_property_tax",
+            )
+            land_tax = st.number_input(
+                "Земельный налог, ₽/мес", min_value=0, value=0, step=1_000,
+                key="p_land_tax",
+            )
+            ip_contrib = st.number_input(
+                "Взносы ИП «за себя», ₽/мес", min_value=0, value=0, step=500,
+                key="p_ip_contrib",
+                help="Фиксированные взносы ИП: 57 390 ₽/год + 1% с дохода свыше 300 тыс. (2026)",
+            )
+        st.caption(
+            "Итого постоянные: "
+            + f"{rent + utilities_extra + security + marketing + maintenance + insurance + other_opex + property_tax + land_tax + ip_contrib:,.0f} ₽/мес".replace(",", " ")
         )
 
         # ── Налоги ──
@@ -521,8 +676,19 @@ def render_sidebar_pro() -> ProParams:
             value=False, key="p_eco_chem",
         )
 
-        # ── Горизонт ──
+        # ── Остаточная стоимость ──
         st.markdown(format_sidebar_heading(SidebarSections.HORIZON), unsafe_allow_html=True)
+        include_terminal = st.checkbox(
+            "Учитывать остаточную стоимость бизнеса",
+            value=False,
+            key="p_terminal_on",
+            help="Продажа/оценка бизнеса на горизонте: × EBITDA последнего года, дисконтируется к сегодняшнему дню",
+        )
+        terminal_multiple = 3.0
+        if include_terminal:
+            terminal_multiple = float(st.slider(
+                "Множитель к EBITDA, ×", 1.0, 6.0, 3.0, 0.5, key="p_terminal_mult",
+            ))
         horizon_years = st.slider(
             "Горизонт, лет", 1, 10, 7, key="p_horizon",
         )
@@ -559,14 +725,24 @@ def render_sidebar_pro() -> ProParams:
             maintenance_month=float(maintenance),
             insurance_month=float(insurance),
             other_opex=float(other_opex),
+            property_tax_month=float(property_tax),
+            land_tax_month=float(land_tax),
+            ip_contributions_month=float(ip_contrib),
             tax_regime=tax_regime,
             amort_years_equipment=amort_years,
             horizon_months=horizon_months,
+            include_terminal_value=include_terminal,
+            terminal_multiple=terminal_multiple,
             scenario_pessim_factor=scenario_pessim,
             scenario_optim_factor=scenario_optim,
             eco_water_recycle_pct=eco_recycle,
             eco_chem_premium=eco_chem,
             water_discharge_profile=water_discharge_profile,
+            water_supply_override=float(water_supply),
+            water_sewage_override=float(water_sewage),
+            elec_price_override=float(elec_price),
+            nv_norm_enabled=nv_norm_enabled,
+            nv_over_enabled=nv_over_enabled,
         )
         render_scenario_sidebar_block("pro", pro_params_preview)
 

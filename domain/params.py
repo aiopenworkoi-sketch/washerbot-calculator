@@ -42,6 +42,19 @@ class SimpleParams:
     water_discharge_profile: str = "typical_car_wash_lt30"
     extra_dryers_enabled: bool = False  # доп. сушки (+11 кВт), только для части моделей
 
+    # Тарифы: переопределение региональных (₽, как в счёте — с НДС)
+    water_supply_override: float | None = None
+    water_sewage_override: float | None = None
+    elec_price_override: float | None = None
+    nv_norm_enabled: bool = False
+    nv_over_enabled: bool = False
+    amort_years_equipment: int = 5
+    include_terminal_value: bool = False
+    terminal_multiple: float = 3.0
+    property_tax_month: float = 0.0
+    land_tax_month: float = 0.0
+    ip_contributions_month: float = 0.0
+
 
 @dataclass
 class ProParams:
@@ -106,5 +119,25 @@ class ProParams:
     eco_chem_premium: bool              # биоразлагаемая химия (+15% к стоимости)
 
     # Конфигурация
-    water_discharge_profile: str = "typical_car_wash_lt30"
+    water_discharge_profile: str = "basic"
     extra_dryers_enabled: bool = False  # доп. сушки (+11 кВт), только для части моделей
+
+    # Тарифы: переопределение региональных (₽, как в счёте — с НДС).
+    # None — использовать тариф региона.
+    water_supply_override: float | None = None   # вода, ₽/м³
+    water_sewage_override: float | None = None   # водоотведение, ₽/м³
+    elec_price_override: float | None = None     # электроэнергия, ₽/кВт·ч
+
+    # Плата за негативное воздействие на работу ЦСВ (Правила № 644):
+    # nv_norm_enabled — 0,5 × тариф водоотведения (п. 123(4));
+    # nv_over_enabled — 2,0 × тариф водоотведения (п. 203, сверхнормативный сброс).
+    # Оба платежа могут начисляться одновременно — 2,5 ×.
+    nv_norm_enabled: bool = False
+    nv_over_enabled: bool = False
+
+    # Остаточная стоимость и дополнительные налоги
+    include_terminal_value: bool = False
+    terminal_multiple: float = 3.0
+    property_tax_month: float = 0.0
+    land_tax_month: float = 0.0
+    ip_contributions_month: float = 0.0

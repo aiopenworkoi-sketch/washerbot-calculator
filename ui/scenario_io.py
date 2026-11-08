@@ -107,6 +107,13 @@ def _coerce_int(value: Any, *, field_name: str) -> int:
         raise ScenarioValidationError(f"Поле params.{field_name} должно быть целым числом.") from exc
 
 
+
+def _optional_float(value: Any) -> float | None:
+    """Необязательное число: None остаётся None, строка/число приводятся к float."""
+    if value is None:
+        return None
+    return _coerce_float(value, field_name="optional_float")
+
 def _coerce_float(value: Any, *, field_name: str) -> float:
     try:
         return float(value)
@@ -221,6 +228,17 @@ def serialize_simple_params(params: SimpleParams) -> dict[str, Any]:
         "other_fixed": params.other_fixed,
         "tax_regime": params.tax_regime,
         "horizon_months": params.horizon_months,
+        "amort_years_equipment": params.amort_years_equipment,
+        "water_supply_override": params.water_supply_override,
+        "water_sewage_override": params.water_sewage_override,
+        "elec_price_override": params.elec_price_override,
+        "nv_norm_enabled": params.nv_norm_enabled,
+        "nv_over_enabled": params.nv_over_enabled,
+        "include_terminal_value": params.include_terminal_value,
+        "terminal_multiple": params.terminal_multiple,
+        "property_tax_month": params.property_tax_month,
+        "land_tax_month": params.land_tax_month,
+        "ip_contributions_month": params.ip_contributions_month,
     }
 
 
@@ -264,6 +282,11 @@ def serialize_pro_params(params: ProParams) -> dict[str, Any]:
         "scenario_optim_factor": params.scenario_optim_factor,
         "eco_water_recycle_pct": params.eco_water_recycle_pct,
         "eco_chem_premium": params.eco_chem_premium,
+        "water_supply_override": params.water_supply_override,
+        "water_sewage_override": params.water_sewage_override,
+        "elec_price_override": params.elec_price_override,
+        "nv_norm_enabled": params.nv_norm_enabled,
+        "nv_over_enabled": params.nv_over_enabled,
     }
 
 
@@ -374,7 +397,20 @@ def deserialize_simple_params(raw: Mapping[str, Any]) -> SimpleParams:
         other_fixed=_coerce_float(_require_key(raw, "other_fixed"), field_name="other_fixed"),
         tax_regime=str(tax_regime),
         horizon_months=_coerce_int(_require_key(raw, "horizon_months"), field_name="horizon_months"),
+        amort_years_equipment=_coerce_int(
+            raw.get("amort_years_equipment", 5), field_name="amort_years_equipment"
+        ),
         water_discharge_profile=water_discharge_profile,
+        water_supply_override=_optional_float(raw.get("water_supply_override")),
+        water_sewage_override=_optional_float(raw.get("water_sewage_override")),
+        elec_price_override=_optional_float(raw.get("elec_price_override")),
+        nv_norm_enabled=bool(raw.get("nv_norm_enabled", False)),
+        nv_over_enabled=bool(raw.get("nv_over_enabled", False)),
+        include_terminal_value=bool(raw.get("include_terminal_value", False)),
+        terminal_multiple=float(raw.get("terminal_multiple", 3.0)),
+        property_tax_month=float(raw.get("property_tax_month", 0.0)),
+        land_tax_month=float(raw.get("land_tax_month", 0.0)),
+        ip_contributions_month=float(raw.get("ip_contributions_month", 0.0)),
     )
     _validate_simple_ranges(params)
     return params
@@ -439,6 +475,11 @@ def deserialize_pro_params(raw: Mapping[str, Any]) -> ProParams:
         eco_water_recycle_pct=_coerce_float(_require_key(raw, "eco_water_recycle_pct"), field_name="eco_water_recycle_pct"),
         eco_chem_premium=_coerce_bool(_require_key(raw, "eco_chem_premium"), field_name="eco_chem_premium"),
         water_discharge_profile=water_discharge_profile,
+        water_supply_override=_optional_float(raw.get("water_supply_override")),
+        water_sewage_override=_optional_float(raw.get("water_sewage_override")),
+        elec_price_override=_optional_float(raw.get("elec_price_override")),
+        nv_norm_enabled=bool(raw.get("nv_norm_enabled", False)),
+        nv_over_enabled=bool(raw.get("nv_over_enabled", False)),
     )
     _validate_pro_ranges(params)
     return params
@@ -452,6 +493,25 @@ def params_from_scenario_payload(payload: Mapping[str, Any]) -> tuple[ScenarioMo
         return mode, deserialize_simple_params(raw_params)
     return mode, deserialize_pro_params(raw_params)
 
+
+
+def _apply_tariff_widget_state(state: dict, params, prefix: str) -> None:
+    """Восстанавливает в виджетах тарифы и галочки НВ при загрузке сценария."""
+    region = REGIONS[params.region_key]
+    supply = params.water_supply_override
+    sewage = params.water_sewage_override
+    elec = params.elec_price_override
+    state[f"{prefix}_water_supply_{params.region_key}"] = float(
+        region.water_supply if supply is None else supply
+    )
+    state[f"{prefix}_water_sewage_{params.region_key}"] = float(
+        region.water_sewage if sewage is None else sewage
+    )
+    state[f"{prefix}_elec_price_{params.region_key}"] = float(
+        region.elec_price if elec is None else elec
+    )
+    state[f"{prefix}_nv_norm"] = bool(getattr(params, 'nv_norm_enabled', False))
+    state[f"{prefix}_nv_over"] = bool(getattr(params, 'nv_over_enabled', False))
 
 def scenario_to_widget_state(mode: ScenarioMode, params: SimpleParams | ProParams) -> dict[str, Any]:
     """Map params dataclass to Streamlit widget session_state keys."""
@@ -483,13 +543,15 @@ def scenario_to_widget_state(mode: ScenarioMode, params: SimpleParams | ProParam
         state["s_other_fixed"] = float(params.other_fixed)
         state["s_tax"] = TAX_REGIMES_LABELS[params.tax_regime]
         state["s_horizon"] = max(1, params.horizon_months // 12)
+        state["s_amort"] = int(getattr(params, "amort_years_equipment", 5))
+        _apply_tariff_widget_state(state, params, "s")
         return state
 
     if not isinstance(params, ProParams):
         raise TypeError("pro mode requires ProParams")
     state["p_model"] = WASHER_CATALOG[params.model_code].name
     state["p_extra_dryers"] = bool(params.extra_dryers_enabled)
-    state["p_water_discharge_profile"] = params.water_discharge_profile
+    _apply_tariff_widget_state(state, params, "p")
     state["p_n_robots"] = params.n_robots
     state["p_region"] = REGIONS[params.region_key].name
     state["p_capex_equip"] = float(params.capex_equipment)

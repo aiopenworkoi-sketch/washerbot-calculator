@@ -18,7 +18,7 @@ from finance.water_usage import (
     is_typical_lt30_profile_exceeded,
     water_usage_assumption_value,
 )
-from finance.opex import calculate_water_cost_per_m3
+from finance.tariffs import effective_tariffs
 from ui.assumption_specs import assumption_row_value, build_pro_assumption_snapshot
 from ui.report_specs import build_simple_investment_report_spec, build_single_investment_report_spec
 from ui.scenario_io import (
@@ -29,7 +29,7 @@ from ui.scenario_io import (
     serialize_simple_params,
 )
 
-DEFAULT_EXPECTED_AVG_CHECK = 520.0
+DEFAULT_EXPECTED_AVG_CHECK = 612.5
 DEFAULT_EXPECTED_WATER_FACTOR = 0.92
 DEFAULT_EXPECTED_ELEC_FACTOR = 0.905
 DEFAULT_EXPECTED_CHEM_FACTOR = 0.955
@@ -54,7 +54,7 @@ def test_default_program_shares_sum_to_one() -> None:
     assert len(PROGRAMS_DEFAULT) == 5
 
 
-def test_default_mix_average_ticket_is_520() -> None:
+def test_default_mix_average_ticket_is_expected() -> None:
     mix = compute_program_mix(PROGRAMS_DEFAULT)
     assert mix.avg_check == pytest.approx(DEFAULT_EXPECTED_AVG_CHECK)
     assert mix.program_count == 5
@@ -86,8 +86,8 @@ def test_average_ticket_matches_assumptions_and_reports() -> None:
 
     assert simple_result.avg_check == pytest.approx(DEFAULT_EXPECTED_AVG_CHECK)
     assert pro_result.avg_check == pytest.approx(DEFAULT_EXPECTED_AVG_CHECK)
-    assert any("520" in line for line in simple_report.config_lines)
-    assert any("520" in line for line in pro_report.config_lines)
+    assert any("612" in line or "613" in line for line in simple_report.config_lines)
+    assert any("612" in line or "613" in line for line in pro_report.config_lines)
 
 
 def test_var_cost_breakdown_equals_total_simple() -> None:
@@ -111,16 +111,18 @@ def test_var_cost_per_wash_helper_matches_runtime() -> None:
     model = get_washer_model(params.model_code, WASHER_CATALOG)
     region = REGIONS[params.region_key]
     mix = compute_program_mix(params.programs)
-    water_tariff = calculate_water_cost_per_m3(
-        supply=region.water_supply,
-        sewage=region.water_sewage,
-        profile=params.water_discharge_profile,
+    tariffs = effective_tariffs(
+        region,
+        water_supply_override=params.water_supply_override,
+        water_sewage_override=params.water_sewage_override,
+        elec_price_override=params.elec_price_override,
     )
+    water_tariff = tariffs.water_supply + tariffs.water_sewage
     breakdown = compute_var_cost_per_wash(
         model=model,
         mix=mix,
         water_cost_per_m3=water_tariff,
-        elec_price=region.elec_price,
+        elec_price=tariffs.elec_price,
         extra_dryers_enabled=params.extra_dryers_enabled,
     )
     result = calculate_simple(params)

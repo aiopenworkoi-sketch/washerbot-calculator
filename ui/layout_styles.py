@@ -62,7 +62,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     .wb-export-shell .wb-section-caption {{
         margin: 0 !important;
-        font-size: 0.74rem !important;
+        font-size: 0.75rem !important;
         line-height: 1.35 !important;
     }}
     .wb-export-group {{
@@ -97,7 +97,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     .wb-export-group-desc {{
         color: {brand['muted']};
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         margin: 0;
         line-height: 1.35;
         flex: 1 1 12rem;
@@ -156,7 +156,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     .wb-export-tile-hint {{
         color: {brand['text2']};
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         line-height: 1.35;
         margin: 0;
         display: -webkit-box;
@@ -223,7 +223,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     .wb-export-badge {{
         display: inline-block;
-        font-size: 0.62rem;
+        font-size: 0.75rem;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -277,6 +277,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         box-sizing: border-box;
     }}
     .wb-table-shell [data-testid="stDataFrame"] {{
+        font-variant-numeric: tabular-nums;
         width: 100%;
     }}
     [data-testid="stMarkdownContainer"] p:has(.wb-chart-shell),
@@ -301,6 +302,29 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     .wb-export-shell + .wb-export-group .wb-export-group-title,
     .wb-export-group:first-of-type .wb-export-group-title {{
         margin-top: 0;
+    }}
+    /* Компактный режим для 1366x768: первый экран должен показывать вердикт */
+    @media (max-width: 1500px) {{
+        .wb-header {{
+            padding: 12px 18px !important;
+            margin-bottom: 10px !important;
+        }}
+        .wb-hero {{
+            padding: 14px 18px 12px 18px;
+            margin-bottom: 12px;
+        }}
+        .wb-hero-headline {{
+            font-size: 1.15rem;
+        }}
+        .wb-hero-metric {{
+            padding: 8px 10px;
+        }}
+        .wb-hero-metric-value {{
+            font-size: 1.2rem;
+        }}
+        .wb-kpi-grid {{
+            gap: 8px;
+        }}
     }}
     @media (max-width: 900px) {{
         [data-testid="stHorizontalBlock"]:has(.wb-export-tile) {{
@@ -434,6 +458,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         word-break: break-word;
     }}
     .wb-kpi-grid .wb-metric-value {{
+        font-variant-numeric: tabular-nums;
         flex: 0 0 auto;
         min-width: 0;
         max-width: 100%;
@@ -543,7 +568,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     .wb-hero-status {{
         display: inline-flex;
         align-self: flex-start;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -585,13 +610,14 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         min-width: 0;
     }}
     .wb-hero-metric-label {{
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 500;
         color: {brand['muted']};
         margin-bottom: 6px;
         letter-spacing: 0.02em;
     }}
     .wb-hero-metric-value {{
+        font-variant-numeric: tabular-nums;
         font-size: 1.45rem;
         font-weight: 700;
         color: {brand['text']};
@@ -600,7 +626,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         overflow-wrap: anywhere;
     }}
     .wb-hero-metric-hint {{
-        font-size: 0.74rem;
+        font-size: 0.75rem;
         color: {brand['text2']};
         margin-top: 5px;
         line-height: 1.35;
@@ -664,7 +690,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         letter-spacing: -0.01em;
     }}
     .wb-section-eyebrow {{
-        font-size: 0.68rem;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.07em;
         text-transform: uppercase;
@@ -776,7 +802,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     .wb-footer-kicker {{
         color: {brand['muted']};
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -842,7 +868,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         margin: 12px 0 0 0 !important;
         padding-top: 10px;
         border-top: 1px solid {brand['border_subtle']};
-        font-size: 0.72rem !important;
+        font-size: 0.75rem !important;
         color: {brand['muted']} !important;
         text-align: center;
         line-height: 1.4;
@@ -894,7 +920,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         margin-bottom: 0.45rem !important;
     }}
     section[data-testid="stSidebar"] .wb-sidebar-heading {{
-        font-size: 0.72rem !important;
+        font-size: 0.75rem !important;
         margin: 1rem 0 0.4rem 0 !important;
         padding-bottom: 0.35rem !important;
         border-bottom-color: {brand['border_subtle']} !important;

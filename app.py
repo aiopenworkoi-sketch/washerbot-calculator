@@ -18,7 +18,7 @@ from data.catalogs import (
 from data.washer_access import get_washer_model
 from domain.params import ProParams, SimpleParams
 from domain.results import ProResult, SimpleResult
-from finance.credit import annuity_payment, annuity_schedule, calculate_credit_schedule
+from finance.credit import calculate_credit_schedule
 from finance.capacity import (
     build_capacity_diagnostics,
     cap_demand_by_capacity,
@@ -27,16 +27,14 @@ from finance.capacity import (
     estimate_peak_hour_utilization,
 )
 from finance.ecology import build_eco_metrics
-from finance.water_discharge import effective_water_tariff_rub_per_m3
 from finance.metrics import (
-    calculate_discounted_payback,
     calculate_irr,
     calculate_npv,
     calculate_payback,
 )
 from finance.model_constants import NPV_DISCOUNT_RATE_ANNUAL
 from finance.model_core import _calculate_pro_core
-from finance.opex import calculate_water_cost_per_m3
+from finance.tariffs import effective_tariffs, nv_coefficient
 from finance.program_mix import compute_program_mix
 from finance.seasonality import build_seasonality_factors
 from finance.var_cost_per_wash import compute_var_cost_per_wash
@@ -920,17 +918,19 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
         n_robots=params.n_robots,
     )
 
-    water_cost_per_m3 = calculate_water_cost_per_m3(
-        supply=region.water_supply,
-        sewage=region.water_sewage,
-        profile=params.water_discharge_profile,
+    tariffs = effective_tariffs(
+        region,
+        water_supply_override=getattr(params, "water_supply_override", None),
+        water_sewage_override=getattr(params, "water_sewage_override", None),
+        elec_price_override=getattr(params, "elec_price_override", None),
     )
+    water_cost_per_m3 = tariffs.water_supply + tariffs.water_sewage
 
     var_cost = compute_var_cost_per_wash(
         model=model,
         mix=mix,
         water_cost_per_m3=water_cost_per_m3,
-        elec_price=region.elec_price,
+        elec_price=tariffs.elec_price,
         extra_dryers_enabled=params.extra_dryers_enabled,
     )
     cost_water_per_wash = var_cost.water
@@ -969,11 +969,38 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
     salary_total_month = np.full(H, salary_total)
     
     # ── Постоянные (аренда, прочее — на ПЛОЩАДКУ, не множится) ──
-    fix_costs_month = np.full(H, params.rent_month + params.other_fixed)
+    nv_per_m3_simple = tariffs.water_sewage * nv_coefficient(
+        norm_enabled=bool(getattr(params, "nv_norm_enabled", False)),
+        over_enabled=bool(getattr(params, "nv_over_enabled", False)),
+    )
+    water_m3_per_wash_simple = model.water_per_wash_l / 1000.0 * mix.avg_water_factor
+    nv_month_simple = nv_per_m3_simple * cars_per_month * water_m3_per_wash_simple
+    fix_costs_month = (
+        np.full(H, params.rent_month + params.other_fixed)
+        + float(getattr(params, 'property_tax_month', 0.0))
+        + float(getattr(params, 'land_tax_month', 0.0))
+        + float(getattr(params, 'ip_contributions_month', 0.0))
+        + nv_month_simple
+    )
     
+    # ── Амортизация (линейная, на всю сумму инвестиций) ──
+    amort_years = max(1, int(getattr(params, "amort_years_equipment", 5)))
+    amort_pm = params.total_investment / (amort_years * 12) if params.total_investment > 0 else 0.0
+    amortization_month = np.zeros(H)
+    amortization_month[: min(H, amort_years * 12)] = amort_pm
+
     # ── EBT (до налога) ──
-    ebt_month = revenue_month - var_costs_month - fix_costs_month - salary_total_month
+    ebt_month = (
+        revenue_month - var_costs_month - fix_costs_month - salary_total_month - amortization_month
+    )
     
+    # База входящего НДС (для ОСНО): вода, электричество, химия, коммуналка, аренда
+    vat_base_simple = (
+        cars_per_month
+        * (cost_water_per_wash + cost_elec_per_wash + cost_chem_per_wash)
+        + np.full(H, params.rent_month + params.other_fixed)
+    )
+
     # ── Налоги (упрощённая policy, ориентир TAX_MODEL_BASELINE_YEAR) ──
     tax_month = calculate_monthly_tax_schedule(
         revenue_month=revenue_month,
@@ -981,7 +1008,11 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
         tax_regime=params.tax_regime,
         start_year=TAX_MODEL_BASELINE_YEAR,
         insurance_month=insurance,
-        patent_cost_month=patent_cost_month_for_region(params.region_key),
+        patent_cost_month=patent_cost_month_for_region(
+            params.region_key,
+            headcount=1 + (1 if params.admin_salary_gross > 0 else 0),
+        ),
+        vat_input_base_month=vat_base_simple,
     )
     
     # ── Чистая прибыль ──
@@ -990,7 +1021,7 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
     # ── Cashflow ──
     cashflow = np.zeros(H + 1)
     cashflow[0] = -params.total_investment
-    cashflow[1:] = profit_month
+    cashflow[1:] = profit_month + amortization_month
     cumulative = np.cumsum(cashflow)
     
     # ── KPI ──
@@ -999,8 +1030,22 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
     total_revenue = float(np.sum(revenue_month))
     total_profit = float(np.sum(profit_month))
     payback_months = calculate_payback(cumulative)
-    npv = calculate_npv(cashflow, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
-    irr = calculate_irr(cashflow)
+    # Остаточная стоимость бизнеса на горизонте (опция): × EBITDA последнего года
+    terminal_value = 0.0
+    if bool(getattr(params, "include_terminal_value", False)) and H >= 12:
+        last_year_ebitda = float(np.sum(ebitda_month[-12:]))
+        terminal_value = max(0.0, float(getattr(params, "terminal_multiple", 3.0)) * last_year_ebitda)
+        if terminal_value > 0:
+            monthly_rate = (1.0 + NPV_DISCOUNT_RATE_ANNUAL) ** (1.0 / 12.0) - 1.0
+            cashflow_with_terminal = cashflow.copy()
+            cashflow_with_terminal[-1] += terminal_value
+        else:
+            cashflow_with_terminal = cashflow.copy()
+    else:
+        cashflow_with_terminal = cashflow.copy()
+
+    npv = calculate_npv(cashflow_with_terminal, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
+    irr = calculate_irr(cashflow_with_terminal)
     margin = (avg_profit_month / avg_revenue_month) if avg_revenue_month > 0 else 0
     
     # ── Структура расходов 1-го года ──
@@ -1012,6 +1057,8 @@ def calculate_simple(params: SimpleParams) -> SimpleResult:
         "ЗП и взносы": float(np.sum(salary_total_month[:n1])),
         "Аренда": float(params.rent_month * n1),
         "Прочее (охрана, реклама)": float(params.other_fixed * n1),
+        "Амортизация": float(np.sum(amortization_month[:n1])),
+        "НВ на ЦСВ": float(np.sum(nv_month_simple[:n1])),
         "Налоги": float(np.sum(tax_month[:n1])),
     }
     
@@ -1159,8 +1206,15 @@ def calculate_pro(params: ProParams) -> ProResult:
         params.rent_month + params.utilities_extra + params.security_month
         + params.marketing_month + params.maintenance_month
         + params.insurance_month + params.other_opex
+        + float(getattr(params, "property_tax_month", 0.0))
+        + float(getattr(params, "land_tax_month", 0.0))
+        + float(getattr(params, "ip_contributions_month", 0.0))
     )
-    opex_month = np.full(H, opex_per_month)
+    # ── Плата за НВ на ЦСВ и сверхнормативный сброс (п. 123(4) / п. 203 Правил № 644) ──
+    # Считается от фактического объёма стоков: авто × м³ на мойку × коэффициент.
+    nv_per_m3 = float(core.get("sewage_tariff", 0.0)) * float(core.get("nv_coefficient", 0.0))
+    nv_month = nv_per_m3 * cars_per_month * float(core.get("water_m3_per_wash", 0.0))
+    opex_month = np.full(H, opex_per_month) + nv_month
     
     # ── EBITDA ──
     ebitda_month = revenue_month - var_costs_month - opex_month - salary_total_month
@@ -1168,6 +1222,13 @@ def calculate_pro(params: ProParams) -> ProResult:
     # ── EBT (до налога): − %кредита − амортизация ──
     ebt_month = ebitda_month - credit_interest_month - amortization_month
     
+    # База входящего НДС (для ОСНО)
+    vat_base_month = (
+        cars_per_month
+        * (core["cost_water_per_wash"] + core["cost_elec_per_wash"] + core["cost_chem_per_wash"])
+        + np.full(H, params.utilities_extra + params.rent_month)
+    )
+
     # ── Налоги (упрощённая policy, ориентир TAX_MODEL_BASELINE_YEAR) ──
     tax_month = calculate_monthly_tax_schedule(
         revenue_month=revenue_month,
@@ -1175,7 +1236,10 @@ def calculate_pro(params: ProParams) -> ProResult:
         tax_regime=params.tax_regime,
         start_year=TAX_MODEL_BASELINE_YEAR,
         insurance_month=insurance_admin + insurance_manager,
-        patent_cost_month=patent_cost_month_for_region(params.region_key),
+        patent_cost_month=patent_cost_month_for_region(
+                params.region_key,
+                headcount=1 + getattr(params, "n_admins", 0) + getattr(params, "n_managers", 0),
+            ),
     )
     
     # ── Чистая прибыль (после налога) ──
@@ -1201,8 +1265,16 @@ def calculate_pro(params: ProParams) -> ProResult:
     if own_funds <= 0:
         # Собственных вложений нет — окупаемость «нулевого чека» не имеет смысла.
         payback_months = float("nan")
-    npv = calculate_npv(cashflow, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
-    irr = calculate_irr(cashflow)
+    # Остаточная стоимость бизнеса на горизонте (опция): × EBITDA последнего года
+    terminal_value = 0.0
+    if bool(getattr(params, "include_terminal_value", False)) and H >= 12:
+        last_year_ebitda = float(np.sum(ebitda_month[-12:]))
+        terminal_value = max(0.0, float(getattr(params, "terminal_multiple", 3.0)) * last_year_ebitda)
+    cf_for_npv = cashflow.copy()
+    if terminal_value > 0:
+        cf_for_npv[-1] += terminal_value
+    npv = calculate_npv(cf_for_npv, discount_rate_annual=NPV_DISCOUNT_RATE_ANNUAL)
+    irr = calculate_irr(cf_for_npv)
     margin_net = (avg_profit_month / avg_revenue_month) if avg_revenue_month > 0 else 0
     margin_ebitda = (avg_ebitda_month / avg_revenue_month) if avg_revenue_month > 0 else 0
     
@@ -1213,15 +1285,25 @@ def calculate_pro(params: ProParams) -> ProResult:
         var = c["var_costs_month"]
         ebitda = rev - var - opex_month - salary_total_month
         ebt = ebitda - credit_interest_month - amortization_month
+        vat_base_c = (
+            c["cars_per_month"]
+            * (c["cost_water_per_wash"] + c["cost_elec_per_wash"] + c["cost_chem_per_wash"])
+            + np.full(H, params.utilities_extra + params.rent_month)
+        )
         tax = calculate_monthly_tax_schedule(
             revenue_month=rev,
             taxable_profit_month=ebt,
             tax_regime=params.tax_regime,
             start_year=TAX_MODEL_BASELINE_YEAR,
             insurance_month=insurance_admin + insurance_manager,
-            patent_cost_month=patent_cost_month_for_region(params.region_key),
+            patent_cost_month=patent_cost_month_for_region(
+                params.region_key,
+                headcount=1 + getattr(params, "n_admins", 0) + getattr(params, "n_managers", 0),
+            ),
+            vat_input_base_month=vat_base_c,
         )
         prof = ebt - tax
+        cf_op = prof + amortization_month - credit_principal_month
         cf_op = prof + amortization_month - credit_principal_month
         cf = np.zeros(H + 1)
         cf[0] = -own_funds
@@ -1240,6 +1322,7 @@ def calculate_pro(params: ProParams) -> ProResult:
         "Вода": float(np.sum(cars_per_month[:n1] * core["cost_water_per_wash"])),
         "Электричество": float(np.sum(cars_per_month[:n1] * core["cost_elec_per_wash"])),
         "Химия": float(np.sum(cars_per_month[:n1] * core["cost_chem_per_wash"])),
+        "НВ на ЦСВ": float(np.sum(nv_month[:n1])),
         "ЗП и взносы": float(np.sum(salary_total_month[:n1])),
         "Аренда": float(params.rent_month * n1),
         "Коммуналка": float(params.utilities_extra * n1),
@@ -1248,6 +1331,11 @@ def calculate_pro(params: ProParams) -> ProResult:
         "ТО, расходники": float(params.maintenance_month * n1),
         "Страхование": float(params.insurance_month * n1),
         "Прочее": float(params.other_opex * n1),
+        "Имущество / земля": float(
+            (params.property_tax_month + params.land_tax_month) * n1
+        ),
+        "Взносы ИП": float(params.ip_contributions_month * n1),
+        "Амортизация": float(np.sum(amortization_month[:n1])),
         "% по кредиту": float(np.sum(credit_interest_month[:n1])),
         "Налоги": float(np.sum(tax_month[:n1])),
     }
@@ -1266,10 +1354,9 @@ def calculate_pro(params: ProParams) -> ProResult:
         chem_per_wash_rub=model.chem_per_wash_rub * float(core.get("avg_chem_factor", 1.0)),
         eco_water_recycle_pct=params.eco_water_recycle_pct,
         eco_chem_premium=params.eco_chem_premium,
-        water_total_tariff_rub_per_m3=effective_water_tariff_rub_per_m3(
-            region.water_supply,
-            region.water_sewage,
-            params.water_discharge_profile,
+        water_total_tariff_rub_per_m3=(
+            float(core.get("water_supply_tariff", region.water_supply))
+            + float(core.get("sewage_tariff", region.water_sewage))
         ),
     )
     

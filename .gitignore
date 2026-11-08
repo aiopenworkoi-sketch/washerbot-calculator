@@ -16,3 +16,8 @@ tmp/
 *.pdf
 *.zip
 !assets/*.png
+
+# служебный мусор тестов и аудита
+pytest-cache-files-*/
+_project_audit_dump_strict/
+.streamlit/secrets.toml

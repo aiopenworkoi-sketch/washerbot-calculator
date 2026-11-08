@@ -1,0 +1,202 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><style>
+body { background: #050810; color: #e5e7eb; font-family: Inter, system-ui, sans-serif; padding: 24px; }
+h2 { color: #f9fafb; font-size: 1rem; margin: 0 0 12px; }
+.wb-metric { background: #111827; border: 1px solid #1f2937; border-left: 2px solid #1f2937; border-radius: 10px; color: #e5e7eb; }
+.wb-metric--primary { border-left-color: #5b8def; background: linear-gradient(180deg, rgba(91,141,239,0.06) 0%, #111827 100%); }
+.wb-metric.good { border-left-color: #22c55e; }
+.wb-metric.warn { border-left-color: #eab308; }
+.wb-metric-label { color: #94a3b8; }
+.wb-metric-value { color: #f9fafb; }
+.wb-metric-hint { color: #9ca3af; }
+
+    /* === LAYOUT POLISH (Step 39) === */
+    .wb-section-block {
+        margin-bottom: 18px;
+    }
+    .wb-section-block--tight {
+        margin-bottom: 12px;
+    }
+    .wb-detail-subheading {
+        margin: 20px 0 8px 0 !important;
+    }
+    .wb-export-shell {
+        margin-bottom: 16px;
+    }
+    .wb-export-group {
+        margin: 0 0 20px 0;
+    }
+    .wb-export-group-head {
+        margin-bottom: 10px;
+    }
+    .wb-export-group-title {
+        color: #ECEFF4;
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        line-height: 1.35;
+    }
+    .wb-export-group-desc {
+        color: #7A8494;
+        font-size: 0.78rem;
+        margin: 0;
+        line-height: 1.45;
+    }
+    .wb-export-card {
+        background: #161D28;
+        border: 1px solid #2A3441;
+        border-radius: 10px;
+        padding: 12px 14px 10px 14px;
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 10px;
+        box-sizing: border-box;
+    }
+    .wb-export-card--full {
+        min-height: 88px;
+    }
+    .wb-export-card-meta {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 6px;
+        min-height: 44px;
+    }
+    .wb-export-badge {
+        display: inline-block;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #6E8FA8;
+        background: rgba(46, 134, 255, 0.08);
+        border: 1px solid rgba(46, 134, 255, 0.22);
+        border-radius: 999px;
+        padding: 3px 8px;
+        width: fit-content;
+    }
+    .wb-export-card-hint {
+        color: #B8C0CC;
+        font-size: 0.76rem;
+        line-height: 1.4;
+        margin: 0;
+        min-height: 2.1em;
+    }
+    .wb-compare-panel {
+        background: #161D28;
+        border: 1px solid #2A3441;
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin: 10px 0 16px 0;
+    }
+    [data-testid="stPlotlyChart"] {
+        background: #161D28;
+        border: 1px solid #2A3441;
+        border-radius: 10px;
+        padding: 6px 8px 2px 8px;
+        margin: 6px 0 16px 0;
+        box-sizing: border-box;
+    }
+    [data-testid="stPlotlyChart"] > div {
+        width: 100% !important;
+    }
+    .wb-export-shell + .wb-export-group .wb-export-group-title,
+    .wb-export-group:first-of-type .wb-export-group-title {
+        margin-top: 4px;
+    }
+    @media (max-width: 900px) {
+        .wb-export-card,
+        .wb-export-card--full {
+            min-height: 92px;
+        }
+        .wb-export-card-hint {
+            min-height: auto;
+        }
+    }
+
+    /* === KPI GRID === */
+    .wb-kpi-grid {
+        display: grid;
+        gap: 12px;
+        margin: 0 0 14px 0;
+        align-items: stretch;
+    }
+    .wb-kpi-grid--cols-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .wb-kpi-grid--cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .wb-kpi-grid--cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .wb-kpi-grid--cols-1 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .wb-kpi-grid .wb-metric {
+        display: flex;
+        flex-direction: column;
+        min-height: 118px;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 14px 16px;
+    }
+    .wb-kpi-grid .wb-metric-body {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 8px;
+        min-height: 72px;
+    }
+    .wb-kpi-grid .wb-metric-value {
+        font-size: 1.35rem;
+        line-height: 1.15;
+        word-break: break-word;
+        hyphens: auto;
+    }
+    .wb-kpi-grid .wb-metric--primary .wb-metric-value {
+        font-size: 1.35rem;
+    }
+    .wb-kpi-grid .wb-metric--secondary .wb-metric-value {
+        font-size: 1.25rem;
+    }
+    .wb-kpi-grid .wb-metric-value--compact {
+        font-size: 1.15rem;
+    }
+    .wb-kpi-grid .wb-metric-value--long {
+        font-size: 1.02rem;
+        line-height: 1.2;
+    }
+    .wb-kpi-grid .wb-metric-hint {
+        margin-top: auto;
+        min-height: 2.35em;
+        line-height: 1.35;
+    }
+    .wb-kpi-grid .wb-metric-hint--empty {
+        visibility: hidden;
+    }
+    .wb-kpi-grid .wb-metric-label {
+        min-height: 2.2em;
+        line-height: 1.25;
+        margin-bottom: 4px;
+    }
+    @media (max-width: 1100px) {
+        .wb-kpi-grid--cols-4,
+        .wb-kpi-grid--cols-3 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 640px) {
+        .wb-kpi-grid--cols-4,
+        .wb-kpi-grid--cols-3,
+        .wb-kpi-grid--cols-2 {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .wb-kpi-grid .wb-metric {
+            min-height: 108px;
+        }
+    }
+    </style></head><body><h2>Ключевые показатели</h2><div class="wb-kpi-grid wb-kpi-grid--cols-4"><div class="wb-metric wb-metric--primary warn"><div class="wb-metric-label">Срок окупаемости</div><div class="wb-metric-body"><div class="wb-metric-value">3 г 1 мес</div><div class="wb-metric-hint">при инвестициях 15,00 млн ₽</div></div></div><div class="wb-metric wb-metric--primary good"><div class="wb-metric-label">Прибыль/мес (среднее)</div><div class="wb-metric-body"><div class="wb-metric-value">404 тыс. ₽</div><div class="wb-metric-hint">маржа 53,8 %</div></div></div><div class="wb-metric wb-metric--secondary good"><div class="wb-metric-label">NPV (ставка 18%)</div><div class="wb-metric-body"><div class="wb-metric-value">1,36 млн ₽</div><div class="wb-metric-hint">за 5 лет</div></div></div><div class="wb-metric good"><div class="wb-metric-label">IRR (годовая)</div><div class="wb-metric-body"><div class="wb-metric-value">22,8 %</div><div class="wb-metric-hint">внутренняя норма доходности</div></div></div><div class="wb-metric"><div class="wb-metric-label">Выручка/мес</div><div class="wb-metric-body"><div class="wb-metric-value">750 тыс. ₽</div><div class="wb-metric-hint">среднее</div></div></div><div class="wb-metric"><div class="wb-metric-label">Авто/мес</div><div class="wb-metric-body"><div class="wb-metric-value">1 500</div><div class="wb-metric-hint">× 1 робот</div></div></div><div class="wb-metric"><div class="wb-metric-label">Выручка за период</div><div class="wb-metric-body"><div class="wb-metric-value wb-metric-value--compact">45,00 млн ₽</div><div class="wb-metric-hint">60 мес</div></div></div><div class="wb-metric"><div class="wb-metric-label">Прибыль за период</div><div class="wb-metric-body"><div class="wb-metric-value wb-metric-value--compact">24,22 млн ₽</div><div class="wb-metric-hint">60 мес</div></div></div></div></body></html>

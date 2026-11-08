@@ -288,7 +288,8 @@ def _config_lines(res: ProResult) -> Tuple[str, ...]:
     lines = [
         f"Модель: {model.name} × {p.n_robots}",
         format_model_config_power_line(p.model_code, extra_dryers_enabled=p.extra_dryers_enabled),
-        f"Профиль водоотведения: {water_discharge_profile_label(p.water_discharge_profile)}",
+        _tariffs_line(res),
+        _nv_line(res),
         _water_config_line(res),
         f"Регион: {region.name}",
         f"CAPEX: {fmt_money_compact(res.capex_total)} · Собственные: {fmt_money_compact(res.own_funds)}",
@@ -620,7 +621,8 @@ def _simple_config_lines(res: SimpleResult) -> Tuple[str, ...]:
     return (
         f"Модель: {model.name} × {p.n_robots}",
         format_model_config_power_line(p.model_code, extra_dryers_enabled=p.extra_dryers_enabled),
-        f"Профиль водоотведения: {water_discharge_profile_label(p.water_discharge_profile)}",
+        _tariffs_line(res),
+        _nv_line(res),
         _water_config_line(res),
         f"Регион: {region.name}",
         f"Инвестиции: {fmt_money_compact(p.total_investment)}",
@@ -634,6 +636,8 @@ def _simple_disclaimers() -> Tuple[str, ...]:
         "Отчёт сформирован автоматически на основе упрощённой модели WasherBot Simple.",
         TAX_MODEL_SIMPLIFIED_NOTE,
         f"NPV рассчитан при ставке дисконтирования {format_npv_discount_rate_label()}.",
+        "Тарифы и нормативы — на 2026 год; уточняются по счёту водоканала и энергосбыта.",
+        "Не учтено: налог на имущество и землю, взносы ИП «за себя», терминальная стоимость, инфляция тарифов.",
         "Показатели не являются инвестиционной рекомендацией или офертой.",
     )
 
@@ -713,3 +717,38 @@ def build_simple_investment_report_spec(res: SimpleResult) -> SimpleInvestmentRe
         mode_label="Simple",
         )
     )
+
+
+def _effective_tariffs_for(params) -> tuple[float, float, float]:
+    from finance.tariffs import effective_tariffs
+
+    region = REGIONS[params.region_key]
+    tariffs = effective_tariffs(
+        region,
+        water_supply_override=getattr(params, "water_supply_override", None),
+        water_sewage_override=getattr(params, "water_sewage_override", None),
+        elec_price_override=getattr(params, "elec_price_override", None),
+    )
+    return tariffs.water_supply, tariffs.water_sewage, tariffs.elec_price
+
+
+def _tariffs_line(res) -> str:
+    """Строка с тарифами, которые реально пошли в расчёт (с НДС)."""
+    supply, sewage, elec = _effective_tariffs_for(res.params)
+    return (
+        f"Тарифы (с НДС): вода {supply:.2f} · водоотведение {sewage:.2f} ₽/м³ · "
+        f"электро {elec:.2f} ₽/кВт·ч"
+    ).replace(".", ",")
+
+
+def _nv_line(res) -> str:
+    """Строка о плате за НВ на ЦСВ и сверхнормативный сброс."""
+    from finance.tariffs import nv_coefficient, nv_mode_label
+
+    p = res.params
+    _, sewage, _ = _effective_tariffs_for(p)
+    norm = bool(getattr(p, "nv_norm_enabled", False))
+    over = bool(getattr(p, "nv_over_enabled", False))
+    coef = nv_coefficient(norm_enabled=norm, over_enabled=over)
+    label = nv_mode_label(norm_enabled=norm, over_enabled=over)
+    return f"НВ на ЦСВ: {label} · {coef:.1f} × {sewage:.2f} = {coef * sewage:.2f} ₽/м³ стоков".replace(".", ",")

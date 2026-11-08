@@ -32,4 +32,5 @@ def test_pro_hero_reuses_verdict_headline() -> None:
     spec = build_pro_executive_hero_spec(res)
     assert spec.headline
     assert len(spec.metrics) == 4
-    assert spec.metrics[1].label == "NPV (18%)"
+    from ui.model_constants import format_npv_kpi_label
+    assert spec.metrics[1].label == format_npv_kpi_label()

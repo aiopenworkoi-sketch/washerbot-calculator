@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from domain.models import WasherModel
-from finance.opex import calculate_water_cost_per_m3
 from finance.program_mix import ProgramMixMetrics
 from finance.variable_costs import calculate_elec_cost_per_wash
 

@@ -702,10 +702,20 @@ def render_pro_cumulative_cashflow_chart(res: ProResult) -> None:
         y=res.cumulative,
         mode="lines",
         line=dict(color=BRAND["primary"], width=3),
-        fill="tozeroy",
-        fillcolor="rgba(91,141,239,0.12)",
         name="Накопленный поток",
         hovertemplate="<b>Месяц %{x}</b><br>Накопленный поток: %{y:,.0f} ₽<extra></extra>",
+    ))
+    # Стартовые инвестиции — отдельная точка, чтобы график читался без заливки минуса
+    fig1.add_trace(go.Scatter(
+        x=[0],
+        y=[res.cumulative[0]],
+        mode="markers+text",
+        marker=dict(color=BRAND["red"], size=9),
+        text=[f"Инвестиции {res.cumulative[0]:,.0f} ₽".replace(",", " ")],
+        textposition="bottom right",
+        textfont=dict(color=BRAND["red"], size=11),
+        name="Инвестиции",
+        hoverinfo="skip",
     ))
     if should_show_payback_marker(res.payback_months):
         fig1.add_vline(
@@ -760,7 +770,7 @@ def render_pro_capex_opex_block(res: ProResult, *, embedded: bool = False) -> No
     with col_opex:
         st.markdown(
             f'<div style="color:{BRAND["muted"]}; font-size:13px; margin-bottom:6px;">'
-            f'OPEX (1-й год)</div>',
+            f'Затраты 1-го года</div>',
             unsafe_allow_html=True,
         )
         labels = list(res.opex_breakdown_year1.keys())

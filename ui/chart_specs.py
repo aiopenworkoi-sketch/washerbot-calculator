@@ -34,19 +34,8 @@ def build_sensitivity_takeaway(sorted_items: List[Tuple[str, float]]) -> str:
 
 
 def _sensitivity_bar_colors(values_pct: List[float]) -> List[str]:
-    if not values_pct:
-        return []
-    max_v = max(values_pct)
-    colors = []
-    for v in values_pct:
-        ratio = v / max_v if max_v > 0 else 0
-        if ratio > 0.66:
-            colors.append(BRAND["primary"])
-        elif ratio > 0.33:
-            colors.append(BRAND["accent"])
-        else:
-            colors.append(BRAND["muted"])
-    return colors
+    """Один цвет для всех баров: длина уже кодирует величину (не дублируем цветом)."""
+    return [BRAND["primary"]] * len(values_pct)
 
 
 def build_sensitivity_driver_figure(

@@ -27,6 +27,7 @@ from ui.renderers import (
     fmt_volume_m3,
 )
 from ui.ui_labels import UIClassNames
+from ui.model_constants import format_npv_kpi_label
 
 
 def build_simple_kpi_card_specs(res: SimpleResult) -> Tuple[MetricCardSpec, ...]:
@@ -52,7 +53,7 @@ def build_simple_kpi_card_specs(res: SimpleResult) -> Tuple[MetricCardSpec, ...]
             "primary",
         ),
         MetricCardSpec(
-            "NPV (ставка 18%)",
+            format_npv_kpi_label(),
             format_kpi_npv_compact(res.npv),
             f"за {p.horizon_months // 12} лет",
             npv_status,
@@ -95,7 +96,7 @@ def build_pro_kpi_card_specs(res: ProResult) -> Tuple[MetricCardSpec, ...]:
             "primary",
         ),
         MetricCardSpec(
-            "NPV (18%)",
+            format_npv_kpi_label(),
             format_kpi_npv_compact(res.npv),
             f"за {p.horizon_months // 12} лет",
             npv_status,

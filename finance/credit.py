@@ -15,37 +15,6 @@ def annuity_payment(principal: float, annual_rate: float, n_months: int) -> floa
     return principal * r * (1 + r) ** n_months / ((1 + r) ** n_months - 1)
 
 
-def annuity_schedule(
-    principal: float, annual_rate: float, n_months: int, total_months: int
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    График аннуитета.
-    Возвращает массивы длиной total_months: проценты, тело, остаток.
-    """
-    interest = np.zeros(total_months)
-    principal_paid = np.zeros(total_months)
-    balance = np.zeros(total_months)
-
-    if principal <= 0 or n_months <= 0:
-        return interest, principal_paid, balance
-
-    pmt = annuity_payment(principal, annual_rate, n_months)
-    r = annual_rate / 12
-    bal = principal
-
-    for i in range(min(n_months, total_months)):
-        int_pay = bal * r
-        prin_pay = pmt - int_pay
-        if prin_pay > bal:
-            prin_pay = bal
-        bal -= prin_pay
-        interest[i] = int_pay
-        principal_paid[i] = prin_pay
-        balance[i] = bal
-
-    return interest, principal_paid, balance
-
-
 def calculate_credit_schedule(
     amount: float,
     annual_rate: float,

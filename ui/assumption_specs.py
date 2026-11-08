@@ -6,12 +6,8 @@ from typing import Tuple
 import numpy as np
 
 from finance.taxes import TAX_MODEL_BASELINE_YEAR, TAX_MODEL_SIMPLIFIED_NOTE
-from finance.water_discharge import water_discharge_profile_label
-from finance.water_usage import (
-    is_typical_lt30_profile_exceeded,
-    water_usage_assumption_note,
-    water_usage_assumption_value,
-)
+from finance.tariffs import effective_tariffs, nv_coefficient, nv_mode_label
+from finance.water_usage import water_usage_assumption_value
 from data.catalogs import REGIONS, WASHER_CATALOG
 from data.washer_access import get_washer_model, supports_extra_dryers
 from finance.variable_costs import EXTRA_DRYER_RUNTIME_SEC_PER_WASH, extra_dryer_kwh_per_wash
@@ -44,6 +40,16 @@ def build_pro_assumption_snapshot(res: ProResult) -> AssumptionSnapshotSpec:
     p = res.params
     model = get_washer_model(p.model_code, WASHER_CATALOG)
     region = REGIONS[p.region_key]
+
+    tariffs_used = effective_tariffs(
+        region,
+        water_supply_override=getattr(p, "water_supply_override", None),
+        water_sewage_override=getattr(p, "water_sewage_override", None),
+        elec_price_override=getattr(p, "elec_price_override", None),
+    )
+    nv_norm = bool(getattr(p, "nv_norm_enabled", False))
+    nv_over = bool(getattr(p, "nv_over_enabled", False))
+    nv_coef = nv_coefficient(norm_enabled=nv_norm, over_enabled=nv_over)
 
     rows: list[AssumptionRowSpec] = [
         AssumptionRowSpec(
@@ -102,23 +108,32 @@ def build_pro_assumption_snapshot(res: ProResult) -> AssumptionSnapshotSpec:
             "тарифы и производительность",
         ),
         AssumptionRowSpec(
-            "Профиль водоотведения",
-            water_discharge_profile_label(p.water_discharge_profile),
-            "стоимость м³ воды в переменных расходах",
+            "Тарифы (с НДС)",
+            (
+                f"вода {tariffs_used.water_supply:.2f} · водоотведение {tariffs_used.water_sewage:.2f} ₽/м³ · "
+                f"электро {tariffs_used.elec_price:.2f} ₽/кВт·ч"
+            ).replace(".", ","),
+            "цены как в счёте, правятся в сайдбаре",
+        ),
+        AssumptionRowSpec(
+            "НВ на ЦСВ",
+            (
+                f"{nv_mode_label(norm_enabled=nv_norm, over_enabled=nv_over)} · "
+                f"{nv_coef:.1f} × {tariffs_used.water_sewage:.2f} = "
+                f"{nv_coef * tariffs_used.water_sewage:.2f} ₽/м³ стоков"
+            ).replace(".", ","),
+            "п. 123(4) и п. 203 Правил № 644",
+            risk_sensitive=nv_coef > 0,
         ),
         AssumptionRowSpec(
             "Оценочный расход воды, м³/сутки",
             water_usage_assumption_value(p.cars_per_day_avg, model.water_per_wash_l),
-            water_usage_assumption_note(
-                profile=p.water_discharge_profile,
-                cars_per_day=p.cars_per_day_avg,
-                water_per_wash_l=model.water_per_wash_l,
+            (
+                "превышает лимит <30 м³/сутки — проверьте применимость; без recycle и mix-факторов"
+                if p.cars_per_day_avg * model.water_per_wash_l / 1000.0 > 30.0
+                else "без recycle и mix-факторов"
             ),
-            risk_sensitive=is_typical_lt30_profile_exceeded(
-                profile=p.water_discharge_profile,
-                cars_per_day=p.cars_per_day_avg,
-                water_per_wash_l=model.water_per_wash_l,
-            ),
+            risk_sensitive=p.cars_per_day_avg * model.water_per_wash_l / 1000.0 > 30.0,
         ),
     ]
 
@@ -225,7 +240,15 @@ def render_assumption_snapshot_html(spec: AssumptionSnapshotSpec) -> str:
     risks_html = "".join(
         f'<li class="wb-assumption-risk-item">{note}</li>' for note in spec.risk_notes
     )
+    not_covered = (
+        '<p class="wb-assumption-note" style="margin-top:10px">'
+        '<b>Что не учтено:</b> налог на имущество и землю, взносы ИП «за себя», '
+        'терминальная стоимость, инфляция тарифов. Тарифы и нормативы — на 2026 год; '
+        'уточняются по счёту водоканала и энергосбыта.'
+        '</p>'
+    )
     return (
         f'<div class="wb-assumption-grid">{"".join(rows_html)}</div>'
         f'<ul class="wb-assumption-risks">{risks_html}</ul>'
+        f'{not_covered}'
     )

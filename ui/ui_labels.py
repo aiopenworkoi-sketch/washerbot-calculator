@@ -33,7 +33,7 @@ class SectionTitles:
     DETAIL_FINANCING_SUB: Final = "График погашения и параметры долговой нагрузки"
     DETAIL_COSTS: Final = "Структура затрат"
     DETAIL_COSTS_SUB: Final = "Распределение CAPEX и OPEX первого года"
-    CAPEX_OPEX: Final = "Структура CAPEX и OPEX (1-й год)"
+    CAPEX_OPEX: Final = "Структура CAPEX и затрат (1-й год)"
     SENSITIVITY: Final = "Драйверы результата"
     SENSITIVITY_SUB: Final = "Ранжирование влияния параметров на NPV при +10% к параметру"
     BREAK_EVEN: Final = "Порог покрытия постоянных затрат"

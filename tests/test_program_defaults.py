@@ -10,12 +10,12 @@ from ui.scenario_io import _programs_from_payload
 def test_program_defaults_prices_and_shares() -> None:
     by_code = {program.code: program for program in PROGRAMS_DEFAULT}
     assert by_code["exterior_only"].name == "Техническая"
-    assert by_code["exterior_only"].price_rub == 100
-    assert by_code["EXPRESS"].price_rub == 300
-    assert by_code["STANDARD"].price_rub == 500
-    assert by_code["PREMIUM"].price_rub == 900
+    assert by_code["exterior_only"].price_rub == 250
+    assert by_code["EXPRESS"].price_rub == 350
+    assert by_code["STANDARD"].price_rub == 550
+    assert by_code["PREMIUM"].price_rub == 1000
     assert by_code["vip"].name == "VIP"
-    assert by_code["vip"].price_rub == 1200
+    assert by_code["vip"].price_rub == 1500
     total_share = sum(program.share_default for program in PROGRAMS_DEFAULT)
     assert total_share == pytest.approx(1.0)
     assert by_code["exterior_only"].share_default == pytest.approx(0.10)

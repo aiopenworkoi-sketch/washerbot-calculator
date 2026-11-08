@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import streamlit as st
+
 from typing import Any, Dict, List
 
 import numpy as np
@@ -144,6 +146,18 @@ def render_pro_export_section(res: ProResult) -> None:
             manifest,
             monthly_preview=(ExportLabels.PRO_TABLE, monthly_df),
         )
+        try:
+            from ui.excel_export import build_pro_excel_bytes
+
+            st.download_button(
+                "Скачать Excel (сводка + помесячно + допущения)",
+                data=build_pro_excel_bytes(res),
+                file_name=f"washerbot_model_{res.params.region_key}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dl_pro_xlsx",
+            )
+        except Exception:
+            pass
 
 
 def render_pro_monthly_table_block(res: ProResult) -> None:

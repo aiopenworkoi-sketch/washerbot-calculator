@@ -45,19 +45,25 @@ OSNO_VAT_RATE = 0.22             # НДС 22% (с 01.01.2026, 425-ФЗ)
 # Для остальных регионов в таблице нет проверенного значения — берём московскую
 # оценку как консервативную; в UI это помечено как ориентир.
 PATENT_COST_YEAR_BY_REGION: Final[Dict[str, float]] = {
-    "MSK": 99_238.0,
+    "MSK": 99_238.0,     # ПВД 1 320 000 × 1,253 × 6% (на ИП и каждого работника)
+    "MO": 111_475.0,     # ПВД 1 482 772 × 1,253 × 6% (без работников)
     "SPB": 105_252.0,
 }
 PATENT_COST_YEAR_DEFAULT: Final[float] = 99_238.0
 PATENT_COST_MONTH = PATENT_COST_YEAR_DEFAULT / 12.0  # обратная совместимость
 
 
-def patent_cost_month_for_region(region_key: str) -> float:
-    """Стоимость патента в месяц для региона (оценка 2026)."""
+def patent_cost_month_for_region(region_key: str, headcount: int = 1) -> float:
+    """Стоимость патента в месяц для региона (оценка 2026).
+
+    Патент платится за ИП и каждого работника, поэтому итог умножается
+    на количество человек (ИП + сотрудники).
+    """
     year = PATENT_COST_YEAR_BY_REGION.get(str(region_key))
     if year is None:
         year = PATENT_COST_YEAR_DEFAULT
-    return float(year) / 12.0
+    people = max(1, int(headcount))
+    return float(year) * people / 12.0
 
 
 TAX_REGIMES_LABELS = {
@@ -89,61 +95,3 @@ def insurance_contributions_sme(
     if monthly_salary <= threshold:
         return monthly_salary * INSURANCE_RATE_BASE
     return threshold * INSURANCE_RATE_BASE + (monthly_salary - threshold) * INSURANCE_RATE_SME
-
-
-def ndfl_amount(monthly_salary_gross: float) -> float:
-    """НДФЛ 13% для упрощения (без прогрессии — у админа ЗП ниже порога)."""
-    return max(0.0, monthly_salary_gross * NDFL_RATE_DEFAULT)
-
-
-def calculate_tax(
-    revenue_year: float,
-    profit_year: float,
-    tax_regime: str,
-    region_key: str = "MSK",
-) -> Dict[str, float]:
-    """
-    УСТАРЕЛО. Оставлено только для обратной совместимости внешних вызовов.
-    Актуальный расчёт — finance.taxation.calculate_tax_for_year().
-    """
-    result = {"tax": 0.0, "vat": 0.0, "total": 0.0, "regime": tax_regime}
-
-    if tax_regime == "USN_INCOME":
-        tax = revenue_year * USN_INCOME_RATE
-        vat = 0.0
-        if revenue_year > USN_VAT_THRESHOLD:
-            if revenue_year <= USN_VAT_5_MAX:
-                vat = revenue_year * USN_VAT_RATE_5
-            else:
-                vat = revenue_year * USN_VAT_RATE_7
-        result["tax"] = tax
-        result["vat"] = vat
-        result["total"] = tax + vat
-
-    elif tax_regime == "USN_PROFIT":
-        tax_normal = max(0.0, profit_year) * USN_PROFIT_RATE
-        tax_min = revenue_year * USN_MIN_TAX_RATE
-        tax = max(tax_normal, tax_min)
-        vat = 0.0
-        if revenue_year > USN_VAT_THRESHOLD:
-            if revenue_year <= USN_VAT_5_MAX:
-                vat = revenue_year * USN_VAT_RATE_5
-            else:
-                vat = revenue_year * USN_VAT_RATE_7
-        result["tax"] = tax
-        result["vat"] = vat
-        result["total"] = tax + vat
-
-    elif tax_regime == "PATENT":
-        result["tax"] = PATENT_COST_MONTH * 12
-        result["vat"] = 0.0
-        result["total"] = result["tax"]
-
-    elif tax_regime == "OSNO":
-        tax = max(0.0, profit_year) * OSNO_PROFIT_RATE
-        vat = revenue_year * OSNO_VAT_RATE
-        result["tax"] = tax
-        result["vat"] = vat
-        result["total"] = tax + vat
-
-    return result

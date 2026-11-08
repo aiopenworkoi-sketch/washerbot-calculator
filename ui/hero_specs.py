@@ -14,6 +14,7 @@ from ui.format_policies import (
     format_kpi_payback,
 )
 from ui.view_guards import should_render_pessimistic_payback_success
+from ui.model_constants import format_npv_discount_rate_label, format_npv_kpi_label
 
 _STATUS_LABELS = {
     "good": "Привлекательно",
@@ -66,7 +67,7 @@ def _simple_headline(res: SimpleResult) -> tuple[str, str]:
     if is_missing_payback_months(res.payback_months) and res.npv <= 0:
         return ("На выбранном горизонте проект не окупается", "bad")
     if res.npv <= 0:
-        return ("NPV отрицательный при ставке 18% — порог доходности не достигнут", "bad")
+        return (f"NPV отрицательный при ставке {format_npv_discount_rate_label()} — порог доходности не достигнут", "bad")
     return ("Положительный NPV, срок окупаемости требует внимания", "warn")
 
 
@@ -83,7 +84,7 @@ def build_simple_executive_hero_spec(res: SimpleResult) -> ExecutiveHeroSpec:
                 format_kpi_payback(res.payback_months),
             ),
             HeroMetricSpec(
-                "NPV (18%)",
+                format_npv_kpi_label(),
                 format_kpi_npv_compact(res.npv),
                 f"за {p.horizon_months // 12} лет",
             ),
@@ -108,17 +109,18 @@ def build_pro_executive_hero_spec(res: ProResult) -> ExecutiveHeroSpec:
     verdict = build_executive_verdict_spec(res)
     p = res.params
 
+    optim_label = format_kpi_payback(res.payback_optim)
     if should_render_pessimistic_payback_success(res):
         fourth = HeroMetricSpec(
             "Диапазон окупаемости",
-            f"{format_kpi_payback(res.payback_pessim)} — {format_kpi_payback(res.payback_optim)}",
-            "песс. — опт.",
+            f"{optim_label} — {format_kpi_payback(res.payback_pessim)}",
+            "опт. — песс.",
         )
     else:
         fourth = HeroMetricSpec(
-            "Прибыль/мес",
-            format_kpi_npv_compact(res.avg_profit_month),
-            "среднее после налогов",
+            "Диапазон окупаемости",
+            f"{optim_label} — не окупается",
+            f"пессимистично за {p.horizon_months // 12} лет",
         )
 
     context = verdict.bullets[0] if verdict.bullets else ""
@@ -133,7 +135,7 @@ def build_pro_executive_hero_spec(res: ProResult) -> ExecutiveHeroSpec:
                 format_kpi_payback(res.payback_months),
             ),
             HeroMetricSpec(
-                "NPV (18%)",
+                format_npv_kpi_label(),
                 format_kpi_npv_compact(res.npv),
                 f"за {p.horizon_months // 12} лет",
             ),
