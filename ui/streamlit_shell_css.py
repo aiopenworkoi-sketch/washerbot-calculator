@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ui.theme_tokens import BRAND, rgba
+
 # Streamlit 1.53 sidebar recovery controls (verified via browser CDP).
 SIDEBAR_EXPAND_CONTROL_SELECTOR = '[data-testid="stExpandSidebarButton"]'
 SIDEBAR_COLLAPSE_CONTROL_SELECTOR = '[data-testid="stSidebarCollapseButton"]'
@@ -24,9 +26,9 @@ def _sidebar_recovery_control_css() -> str:
         pointer-events: auto !important;
         min-width: 44px !important;
         min-height: 44px !important;
-        color: #e5e7eb !important;
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: {BRAND['text']} !important;
+        background: {rgba(BRAND['text'], 0.08)} !important;
+        border: 1px solid {rgba(BRAND['text'], 0.2)} !important;
         border-radius: 6px !important;
     }}
     @media (max-width: 768px) {{

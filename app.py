@@ -58,6 +58,9 @@ from ui.renderers import (
     render_header,
     render_mode_switcher,
 )
+from ui.theme_switch import init_theme, render_theme_toggle
+from ui.light_theme_css import build_light_shell_css
+from ui.theme_tokens import is_light, rgba
 from ui.presentation_mode import (
     init_presentation_mode,
     render_presentation_flag,
@@ -118,7 +121,7 @@ def inject_css():
 
     /* === ОСНОВА === */
     .stApp {{
-        background: linear-gradient(180deg, {BRAND['bg']} 0%, #050810 100%);
+        background: linear-gradient(180deg, {BRAND['bg']} 0%, {BRAND['bg2']} 100%);
         color: {BRAND['text']};
     }}
     
@@ -227,7 +230,7 @@ def inject_css():
     
     .stButton > button:hover {{
         border-color: {BRAND['primary']};
-        background: rgba(46,134,255,0.1);
+        background: {rgba(BRAND['primary'], 0.1)};
         transform: translateY(-1px);
     }}
 
@@ -245,19 +248,19 @@ def inject_css():
 
     .stDownloadButton > button:hover {{
         border-color: {BRAND['primary']};
-        background: rgba(46,134,255,0.1);
+        background: {rgba(BRAND['primary'], 0.1)};
         transform: translateY(-1px);
     }}
     
     .stButton > button[kind="primary"] {{
         background: {BRAND['primary']};
         border: 1px solid {BRAND['primary']};
-        color: #fff !important;
+        color: {BRAND['on_primary']} !important;
         box-shadow: none;
     }}
     
     .stButton > button[kind="primary"]:hover {{
-        background: #4A78D8;
+        background: {BRAND['accent']};
         box-shadow: none;
         transform: none;
     }}
@@ -272,8 +275,8 @@ def inject_css():
     }}
 
     .stButton > button[kind="secondary"]:hover {{
-        border-color: rgba(46,134,255,0.45);
-        background: rgba(46,134,255,0.06);
+        border-color: {rgba(BRAND['primary'], 0.45)};
+        background: {rgba(BRAND['primary'], 0.06)};
         transform: none;
     }}
 
@@ -306,9 +309,9 @@ def inject_css():
     .wb-badge {{
         display: inline-block;
         padding: 4px 10px;
-        background: rgba(91,141,239,0.12);
+        background: {rgba(BRAND['primary'], 0.12)};
         color: {BRAND['primary']};
-        border: 1px solid rgba(91,141,239,0.28);
+        border: 1px solid {rgba(BRAND['primary'], 0.28)};
         border-radius: 6px;
         font-size: 0.72rem;
         font-weight: 600;
@@ -373,8 +376,8 @@ def inject_css():
     /* === МЕТРИКИ === */
     .wb-metric {{
         background: {BRAND['surface']};
-        border: 1px solid {BRAND.get('border_subtle', 'rgba(138,152,168,0.16)')};
-        border-left: 2px solid {BRAND.get('border_subtle', 'rgba(138,152,168,0.16)')};
+        border: 1px solid {BRAND.get('border_subtle', 'rgba(138, 152, 168, 0.16)')};
+        border-left: 2px solid {BRAND.get('border_subtle', 'rgba(138, 152, 168, 0.16)')};
         border-radius: 10px;
         padding: 14px 16px;
         height: 100%;
@@ -388,8 +391,8 @@ def inject_css():
     }}
 
     .wb-metric--primary {{
-        border-left-color: rgba(91, 141, 239, 0.55);
-        background: linear-gradient(180deg, rgba(91,141,239,0.05) 0%, {BRAND['surface']} 100%);
+        border-left-color: {rgba(BRAND['primary'], 0.55)};
+        background: linear-gradient(180deg, {rgba(BRAND['primary'], 0.05)} 0%, {BRAND['surface']} 100%);
     }}
 
     .wb-metric--primary .wb-metric-value {{
@@ -447,8 +450,8 @@ def inject_css():
     
     /* === ИНФО / ПРЕДУПРЕЖДЕНИЕ / УСПЕХ === */
     .wb-info {{
-        background: rgba(46,134,255,0.08);
-        border: 1px solid rgba(46,134,255,0.3);
+        background: {rgba(BRAND['primary'], 0.08)};
+        border: 1px solid {rgba(BRAND['primary'], 0.3)};
         border-radius: 10px;
         padding: 12px 16px;
         color: {BRAND['text']};
@@ -457,8 +460,8 @@ def inject_css():
     }}
     
     .wb-warn {{
-        background: rgba(245,158,11,0.08);
-        border: 1px solid rgba(245,158,11,0.3);
+        background: {rgba(BRAND['yellow'], 0.08)};
+        border: 1px solid {rgba(BRAND['yellow'], 0.3)};
         border-radius: 10px;
         padding: 12px 16px;
         color: {BRAND['text']};
@@ -492,8 +495,8 @@ def inject_css():
         padding: 4px;
         border-radius: 12px;
         border: 1px solid {BRAND['border']};
-        background: rgba(15, 23, 42, 0.72);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        background: {rgba(BRAND['bg2'], 0.72)};
+        box-shadow: inset 0 1px 0 {rgba(BRAND['text'], 0.03)};
     }}
     .wb-mode-tabs [data-testid="column"] {{
         padding: 0 2px !important;
@@ -511,12 +514,12 @@ def inject_css():
     .wb-mode-tabs .stButton > button[kind="primary"] {{
         background: linear-gradient(
             180deg,
-            rgba(91, 141, 239, 0.22) 0%,
-            rgba(91, 141, 239, 0.1) 100%
+            {rgba(BRAND['primary'], 0.22)} 0%,
+            {rgba(BRAND['primary'], 0.1)} 100%
         );
-        border-color: rgba(91, 141, 239, 0.45);
+        border-color: {rgba(BRAND['primary'], 0.45)};
         color: {BRAND['text']} !important;
-        box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.1);
+        box-shadow: 0 0 0 1px {rgba(BRAND['primary'], 0.1)};
     }}
     .wb-mode-tabs .stButton > button[kind="secondary"] {{
         background: transparent;
@@ -525,8 +528,8 @@ def inject_css():
     }}
     .wb-mode-tabs .stButton > button[kind="secondary"]:hover {{
         color: {BRAND['text2']} !important;
-        background: rgba(91, 141, 239, 0.08);
-        border-color: rgba(91, 141, 239, 0.18);
+        background: {rgba(BRAND['primary'], 0.08)};
+        border-color: {rgba(BRAND['primary'], 0.18)};
     }}
     .wb-mode-tabs .stButton > button:hover {{
         transform: none;
@@ -540,7 +543,7 @@ def inject_css():
         padding: 5px 10px;
         border: 1px solid {BRAND['border']};
         border-radius: 8px;
-        background: rgba(17,24,39,0.35);
+        background: {rgba(BRAND['bg2'], 0.35)};
     }}
 
     .wb-compare-secondary {{
@@ -552,7 +555,7 @@ def inject_css():
     [data-testid="stExpander"] details {{
         border: 1px solid {BRAND['border']};
         border-radius: 10px;
-        background: rgba(17,24,39,0.25);
+        background: {rgba(BRAND['bg2'], 0.25)};
     }}
     [data-testid="stExpander"] summary {{
         font-weight: 600;
@@ -633,8 +636,8 @@ def inject_css():
         padding: 14px 16px;
     }}
     .wb-scenario-card--base {{
-        border-color: rgba(91,141,239,0.45);
-        background: linear-gradient(180deg, rgba(91,141,239,0.06) 0%, {BRAND['card']} 100%);
+        border-color: {rgba(BRAND['primary'], 0.45)};
+        background: linear-gradient(180deg, {rgba(BRAND['primary'], 0.06)} 0%, {BRAND['card']} 100%);
     }}
     .wb-scenario-card-label {{
         font-size: 0.82rem;
@@ -894,8 +897,81 @@ def inject_css():
         .wb-header-right {{ text-align: left; margin-top: 12px; }}
         .block-container {{ padding-left: 0.8rem !important; padding-right: 0.8rem !important; }}
     }}
-    </style>
+    
+
+    /* === ТАБЛИЦЫ (HTML) === */
+    .wb-table-wrap {{
+        border: 1px solid {BRAND['border_subtle']};
+        border-radius: 10px;
+        overflow: auto;
+        max-height: 460px;
+        background: {BRAND['surface']};
+    }}
+    table.wb-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+        font-variant-numeric: tabular-nums;
+    }}
+    table.wb-table th {{
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: {BRAND['surface2']};
+        color: {BRAND['text']};
+        text-align: right;
+        padding: 8px 10px;
+        border-bottom: 1px solid {BRAND['border']};
+        white-space: nowrap;
+    }}
+    table.wb-table th:first-child,
+    table.wb-table td:first-child {{ text-align: left; }}
+    table.wb-table td {{
+        padding: 7px 10px;
+        text-align: right;
+        color: {BRAND['text2']};
+        border-bottom: 1px solid {BRAND['border_subtle']};
+        white-space: nowrap;
+    }}
+    table.wb-table tbody tr:nth-child(even) td {{
+        background: {rgba(BRAND['surface2'], 0.45)};
+    }}
+    table.wb-table tbody tr:hover td {{
+        background: {rgba(BRAND['primary'], 0.08)};
+    }}
+    /* === ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ === */
+    .st-key-wb_theme_switch {{
+        position: fixed;
+        top: 18px;
+        right: 22px;
+        z-index: 1000002;
+        width: 152px;
+    }}
+    .st-key-wb_theme_switch button {{
+        border-radius: 999px !important;
+        border: 1px solid {BRAND['border']} !important;
+        background: {BRAND['card']} !important;
+        color: {BRAND['text']} !important;
+        font-size: 0.82rem !important;
+        padding: 6px 12px !important;
+    }}
+    .wb-header-right {{
+        padding-right: 168px;
+    }}
+    @media (max-width: 900px) {{
+        .st-key-wb_theme_switch {{
+            position: static;
+            width: 100%;
+            margin: 0 0 10px 0;
+        }}
+        .wb-header-right {{
+            padding-right: 0;
+        }}
+    }}
+</style>
     """
+    if is_light():
+        css += build_light_shell_css(BRAND)
     st.markdown(css, unsafe_allow_html=True)
 
 
@@ -1452,6 +1528,7 @@ def main():
     """Точка входа в приложение."""
     setup_page()
     init_presentation_mode()
+    init_theme()
     inject_css()
 
     if "mode" not in st.session_state:
@@ -1459,6 +1536,7 @@ def main():
     mode = st.session_state.mode
 
     render_header(mode)
+    render_theme_toggle()
     mode = render_mode_switcher()
     render_presentation_mode_controls()
     render_presentation_flag()

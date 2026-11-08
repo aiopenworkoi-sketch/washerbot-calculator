@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ui.theme_tokens import rgba
+
 from typing import Mapping
 
 
@@ -38,7 +40,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         display: block;
         margin: 0 0 10px 0;
         padding: 10px 12px;
-        background: rgba(17, 24, 39, 0.42);
+        background: {rgba(brand['bg2'], 0.42)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 12px;
         box-sizing: border-box;
@@ -68,13 +70,13 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     .wb-export-group {{
         margin: 0;
         padding: 8px 10px;
-        background: rgba(17, 24, 39, 0.35);
+        background: {rgba(brand['bg2'], 0.35)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 10px;
     }}
     .wb-export-group--utility {{
         opacity: 0.95;
-        background: rgba(17, 24, 39, 0.22);
+        background: {rgba(brand['bg2'], 0.22)};
     }}
     .wb-export-group--utility .wb-export-group-title {{
         font-size: 0.82rem;
@@ -113,7 +115,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         flex: 1 1 auto;
         min-height: 108px;
         padding: 10px 10px 6px 10px;
-        background: rgba(15, 23, 42, 0.55);
+        background: {rgba(brand['bg2'], 0.55)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 10px;
         box-sizing: border-box;
@@ -138,7 +140,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     .wb-export-group--secondary {{
         margin-top: 14px;
         padding: 10px 12px;
-        background: rgba(17, 24, 39, 0.22);
+        background: {rgba(brand['bg2'], 0.22)};
         border: 1px dashed {brand['border_subtle']};
         border-radius: 10px;
     }}
@@ -228,8 +230,8 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: {brand['cyan']};
-        background: rgba(46, 134, 255, 0.08);
-        border: 1px solid rgba(46, 134, 255, 0.22);
+        background: {rgba(brand['primary'], 0.08)};
+        border: 1px solid {rgba(brand['primary'], 0.22)};
         border-radius: 999px;
         padding: 2px 7px;
         width: fit-content;
@@ -537,7 +539,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     .wb-hero {{
         background: linear-gradient(
             135deg,
-            rgba(91, 141, 239, 0.10) 0%,
+            {rgba(brand['primary'], 0.10)} 0%,
             {brand['surface']} 38%,
             {brand['surface2']} 100%
         );
@@ -548,16 +550,16 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
     }}
     .wb-hero--good {{
-        border-color: rgba(79, 168, 130, 0.35);
+        border-color: {rgba(brand['green'], 0.35)};
     }}
     .wb-hero--info {{
-        border-color: rgba(91, 141, 239, 0.35);
+        border-color: {rgba(brand['primary'], 0.35)};
     }}
     .wb-hero--warn {{
-        border-color: rgba(184, 154, 74, 0.35);
+        border-color: {rgba(brand['yellow'], 0.35)};
     }}
     .wb-hero--bad {{
-        border-color: rgba(201, 107, 107, 0.35);
+        border-color: {rgba(brand['red'], 0.35)};
     }}
     .wb-hero-top {{
         display: flex;
@@ -573,20 +575,20 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: {brand['text2']};
-        background: rgba(255, 255, 255, 0.04);
+        background: {rgba(brand['text'], 0.04)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 999px;
         padding: 4px 10px;
     }}
     .wb-hero--good .wb-hero-status {{
         color: {brand['green']};
-        border-color: rgba(79, 168, 130, 0.35);
-        background: rgba(79, 168, 130, 0.08);
+        border-color: {rgba(brand['green'], 0.35)};
+        background: {rgba(brand['green'], 0.08)};
     }}
     .wb-hero--bad .wb-hero-status {{
         color: {brand['red']};
-        border-color: rgba(201, 107, 107, 0.35);
-        background: rgba(201, 107, 107, 0.08);
+        border-color: {rgba(brand['red'], 0.35)};
+        background: {rgba(brand['red'], 0.08)};
     }}
     .wb-hero-headline {{
         font-size: 1.35rem;
@@ -603,7 +605,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         gap: 12px;
     }}
     .wb-hero-metric {{
-        background: rgba(255, 255, 255, 0.03);
+        background: {rgba(brand['text'], 0.03)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 12px;
         padding: 12px 14px;
@@ -735,12 +737,12 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{
         gap: 4px;
-        background: rgba(15, 23, 42, 0.72);
+        background: {rgba(brand['bg2'], 0.72)};
         border: 1px solid {brand['border_subtle']};
         border-radius: 12px;
         padding: 4px;
         min-height: 44px;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        box-shadow: inset 0 1px 0 {rgba(brand['text'], 0.03)};
     }}
     [data-testid="stTabs"] [data-baseweb="tab-border"] {{
         display: none;
@@ -758,18 +760,18 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     [data-testid="stTabs"] [data-baseweb="tab"]:hover {{
         color: {brand['text2']};
-        background: rgba(91, 141, 239, 0.08);
-        border-color: rgba(91, 141, 239, 0.18);
+        background: {rgba(brand['primary'], 0.08)};
+        border-color: {rgba(brand['primary'], 0.18)};
     }}
     [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {{
         color: {brand['text']} !important;
         background: linear-gradient(
             180deg,
-            rgba(91, 141, 239, 0.22) 0%,
-            rgba(91, 141, 239, 0.1) 100%
+            {rgba(brand['primary'], 0.22)} 0%,
+            {rgba(brand['primary'], 0.1)} 100%
         ) !important;
-        border-color: rgba(91, 141, 239, 0.45) !important;
-        box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.12), 0 6px 18px rgba(15, 23, 42, 0.35);
+        border-color: {rgba(brand['primary'], 0.45)} !important;
+        box-shadow: 0 0 0 1px {rgba(brand['primary'], 0.12)}, 0 6px 18px {rgba(brand['bg2'], 0.35)};
     }}
     @media (max-width: 768px) {{
         [data-testid="stTabs"] [data-baseweb="tab-list"] {{
@@ -786,13 +788,13 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
 
     /* === PREMIUM FOOTER / CLOSING CTA === */
     .wb-footer {{
-        background: linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 55%, rgba(12, 18, 32, 1) 100%);
+        background: linear-gradient(135deg, {rgba(brand['bg2'], 0.95)} 0%, {rgba(brand['bg2'], 0.98)} 55%, rgba(12, 18, 32, 1) 100%);
         border: 1px solid {brand['border_subtle']};
         border-radius: 14px;
         padding: 18px 20px 14px 20px;
         margin-top: 24px;
         text-align: left;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        box-shadow: inset 0 1px 0 {rgba(brand['text'], 0.04)};
     }}
     .wb-footer-grid {{
         display: grid;
@@ -840,12 +842,12 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         padding: 7px 12px;
         border-radius: 999px;
         border: 1px solid {brand['border_subtle']};
-        background: rgba(15, 23, 42, 0.55);
+        background: {rgba(brand['bg2'], 0.55)};
         transition: border-color 0.15s ease, background 0.15s ease;
     }}
     .wb-footer-pill:hover {{
-        border-color: rgba(91, 141, 239, 0.45);
-        background: rgba(91, 141, 239, 0.1);
+        border-color: {rgba(brand['primary'], 0.45)};
+        background: {rgba(brand['primary'], 0.1)};
         text-decoration: none !important;
     }}
     .wb-footer-cta {{
@@ -857,11 +859,11 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         font-size: 0.8rem;
         padding: 8px 14px;
         border-radius: 8px;
-        border: 1px solid rgba(91, 141, 239, 0.45);
-        background: rgba(91, 141, 239, 0.14);
+        border: 1px solid {rgba(brand['primary'], 0.45)};
+        background: {rgba(brand['primary'], 0.14)};
     }}
     .wb-footer-cta:hover {{
-        background: rgba(91, 141, 239, 0.22);
+        background: {rgba(brand['primary'], 0.22)};
         text-decoration: none !important;
     }}
     .wb-footer-legal {{
@@ -889,8 +891,8 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         box-shadow: none;
     }}
     .wb-kpi-shell .wb-metric--primary {{
-        background: linear-gradient(180deg, rgba(91,141,239,0.05) 0%, {brand['surface']} 100%);
-        border-left-color: rgba(91, 141, 239, 0.55);
+        background: linear-gradient(180deg, {rgba(brand['primary'], 0.05)} 0%, {brand['surface']} 100%);
+        border-left-color: {rgba(brand['primary'], 0.55)};
     }}
     .wb-chart-shell,
     .wb-table-shell {{
@@ -940,7 +942,7 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         padding: 10px 12px;
         border: 1px solid {brand['border_subtle']};
         border-radius: 10px;
-        background: rgba(91, 141, 239, 0.06);
+        background: {rgba(brand['primary'], 0.06)};
     }}
     .wb-presentation-recovery .stCaption {{
         text-align: center;
@@ -960,11 +962,11 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
     }}
     @keyframes wb-sidebar-pulse {{
         0%, 100% {{ box-shadow: inset 3px 0 0 transparent; }}
-        50% {{ box-shadow: inset 3px 0 0 rgba(91, 141, 239, 0.85); }}
+        50% {{ box-shadow: inset 3px 0 0 {rgba(brand['primary'], 0.85)}; }}
     }}
     section[data-testid="stSidebar"]:has(.wb-sidebar-pulse-marker) {{
         animation: wb-sidebar-pulse 0.9s ease-in-out 3;
-        border-right-color: rgba(91, 141, 239, 0.55) !important;
+        border-right-color: {rgba(brand['primary'], 0.55)} !important;
     }}
     .wb-tier-panel {{
         margin-top: 4px;
@@ -993,14 +995,14 @@ def build_layout_css(brand: Mapping[str, str]) -> str:
         transition: border-color 0.15s ease, background 0.15s ease;
     }}
     .wb-hero-metric:hover {{
-        border-color: rgba(91, 141, 239, 0.28);
-        background: rgba(255, 255, 255, 0.045);
+        border-color: {rgba(brand['primary'], 0.28)};
+        background: {rgba(brand['text'], 0.045)};
     }}
     .wb-kpi-shell .wb-metric {{
         transition: border-color 0.15s ease;
     }}
     .wb-kpi-shell .wb-metric:hover {{
-        border-color: rgba(91, 141, 239, 0.22);
+        border-color: {rgba(brand['primary'], 0.22)};
     }}
 
     /* Scope presentation polish to main content only — never hide or remove sidebar. */

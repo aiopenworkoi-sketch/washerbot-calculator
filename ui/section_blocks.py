@@ -63,6 +63,27 @@ def render_plotly_section(fig: go.Figure, *, use_container_width: bool = True) -
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def _format_table_cell(value: Any) -> str:
+    """Формат ячейки: деньги — с пробелами, проценты — с запятой."""
+    import math
+
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "да" if value else "нет"
+    if isinstance(value, (int,)):
+        return f"{value:,}".replace(",", " ")
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return "—"
+        if abs(value) >= 1000:
+            return f"{value:,.0f}".replace(",", " ")
+        if abs(value) >= 100:
+            return f"{value:,.0f}".replace(",", " ")
+        return f"{value:,.2f}".replace(",", " ").replace(".", ",")
+    return html.escape(str(value))
+
+
 def render_dataframe_section(
     df: pd.DataFrame,
     *,
@@ -71,23 +92,21 @@ def render_dataframe_section(
     height: int | None = None,
     column_config: dict[str, Any] | None = None,
 ) -> None:
-    kwargs: dict[str, Any] = {"use_container_width": use_container_width, "hide_index": hide_index}
-    if height is not None:
-        kwargs["height"] = height
-    if column_config is None:
-        try:
-            column_config = infer_table_column_config(df)
-        except Exception:
-            column_config = {}
-    if column_config:
-        kwargs["column_config"] = column_config
-    st.markdown('<div class="wb-table-shell">', unsafe_allow_html=True)
-    try:
-        st.dataframe(df, **kwargs)
-    except TypeError:
-        kwargs.pop("column_config", None)
-        st.dataframe(df, **kwargs)
-    st.markdown("</div>", unsafe_allow_html=True)
+    """Таблица на HTML: перекрашивается темой (st.dataframe — canvas)."""
+    if df is None or df.empty:
+        return
+    headers = "".join(f"<th>{html.escape(str(col))}</th>" for col in df.columns)
+    body_rows = []
+    for row in df.itertuples(index=False, name=None):
+        cells = "".join(f"<td>{_format_table_cell(v)}</td>" for v in row)
+        body_rows.append(f"<tr>{cells}</tr>")
+    table_html = (
+        '<div class="wb-table-wrap"><table class="wb-table">'
+        f"<thead><tr>{headers}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table></div>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def render_section_subtitle(text: str | None) -> None:
