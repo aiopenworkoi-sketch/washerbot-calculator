@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from ui.theme_tokens import rgba
+from ui.theme_palette import rgba
 
 
 def build_light_shell_css(brand: Mapping[str, str]) -> str:

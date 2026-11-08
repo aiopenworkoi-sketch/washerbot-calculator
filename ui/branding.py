@@ -40,7 +40,7 @@ def logo_available() -> bool:
 
 def logo_img_html(*, height: int = 40, margin: str = "0", opacity: float = 1.0) -> str:
     """Логотип под активную тему: белый — на тёмной, тёмный — на светлой."""
-    from ui.theme_tokens import is_light
+    from ui.theme_palette import is_light
 
     uri = logo_data_uri(light=not is_light())
     if not uri:

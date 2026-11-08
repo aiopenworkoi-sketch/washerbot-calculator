@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ui.theme_tokens import BRAND, rgba
+from ui.theme_palette import BRAND, rgba
 
 # Streamlit 1.53 sidebar recovery controls (verified via browser CDP).
 SIDEBAR_EXPAND_CONTROL_SELECTOR = '[data-testid="stExpandSidebarButton"]'

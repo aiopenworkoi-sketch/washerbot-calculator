@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ui.theme_tokens import rgba
+from ui.theme_palette import rgba
 
 from typing import Mapping
 

@@ -78,7 +78,7 @@ def test_app_inject_css_includes_shell_fragments() -> None:
 
 def test_layout_css_sidebar_pulse_without_hard_hide() -> None:
     from ui.layout_styles import build_layout_css
-    from ui.theme_tokens import BRAND
+    from ui.theme_palette import BRAND
 
     css = build_layout_css(BRAND)
     assert "wb-sidebar-pulse-marker" in css
@@ -94,7 +94,7 @@ def test_layout_css_sidebar_pulse_without_hard_hide() -> None:
 
 def test_layout_css_compact_export_tiles() -> None:
     from ui.layout_styles import build_layout_css
-    from ui.theme_tokens import BRAND
+    from ui.theme_palette import BRAND
 
     css = build_layout_css(BRAND)
     assert "wb-export-tile" in css
@@ -105,7 +105,7 @@ def test_layout_css_compact_export_tiles() -> None:
 
 def test_layout_css_premium_detail_tabs_and_footer() -> None:
     from ui.layout_styles import build_layout_css
-    from ui.theme_tokens import BRAND
+    from ui.theme_palette import BRAND
 
     css = build_layout_css(BRAND)
     assert "wb-detail-tabs-rail" in css
@@ -163,7 +163,7 @@ def test_scenario_panel_is_structured_for_mobile() -> None:
 
 def test_layout_css_mobile_touch_rules_present() -> None:
     from ui.layout_styles import build_layout_css
-    from ui.theme_tokens import BRAND
+    from ui.theme_palette import BRAND
 
     css = build_layout_css(BRAND)
     assert "wb-mobile-sidebar-affordance" not in css

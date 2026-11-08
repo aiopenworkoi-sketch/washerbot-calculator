@@ -265,7 +265,7 @@ body { background: #071225 !important; color: #E5E7EB !important; }
 
 def report_theme_css() -> str:
     """Дополнительный CSS отчёта: тёмная тема — тёмный документ."""
-    from ui.theme_tokens import is_light
+    from ui.theme_palette import is_light
 
     return "" if is_light() else DARK_REPORT_CSS
 

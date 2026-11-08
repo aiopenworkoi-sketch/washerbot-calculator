@@ -13,7 +13,7 @@ from ui.display_fallbacks import (
     missing_placeholder,
 )
 from ui.text_fallbacks import coerce_visible_text
-from ui.theme_tokens import BRAND
+from ui.theme_palette import BRAND
 
 
 def fmt_money(value: float, decimals: int = 0, suffix: str = "₽") -> str:
@@ -122,7 +122,7 @@ PLOTLY_PRESENTATION_CONFIG: dict = {
 
 def style_plotly(fig: go.Figure, height: int = 400, title: str = "") -> go.Figure:
     """Применяет стиль графика под активную тему."""
-    from ui.theme_tokens import is_light, rgba
+    from ui.theme_palette import is_light, rgba
 
     light = is_light()
     grid_color = BRAND["chart_grid"]

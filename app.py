@@ -60,7 +60,14 @@ from ui.renderers import (
 )
 from ui.theme_switch import init_theme, render_theme_toggle
 from ui.light_theme_css import build_light_shell_css
-from ui.theme_tokens import is_light, rgba
+try:
+    from ui.theme_palette import is_light, rgba
+except Exception:  # pragma: no cover - аварийный режим
+    def is_light() -> bool:
+        return False
+
+    def rgba(color: str, alpha: float) -> str:
+        return color
 from ui.presentation_mode import (
     init_presentation_mode,
     render_presentation_flag,

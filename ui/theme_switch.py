@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ui.theme_tokens import (
-    DEFAULT_THEME,
-    get_active_theme,
-    set_active_theme,
-)
+try:  # тема не должна ронять приложение ни при каких раскладах
+    from ui.theme_palette import (
+        DEFAULT_THEME,
+        get_active_theme,
+        set_active_theme,
+    )
+except Exception:  # pragma: no cover - аварийный режим
+    DEFAULT_THEME = "dark"
+
+    def get_active_theme() -> str:
+        return "dark"
+
+    def set_active_theme(name: str) -> str:
+        return "dark"
 
 SESSION_KEY = "ui_theme"
 

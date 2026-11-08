@@ -7,7 +7,7 @@ import pytest
 
 import ui.presentation_mode as pm
 from ui.layout_styles import build_layout_css
-from ui.theme_tokens import BRAND
+from ui.theme_palette import BRAND
 
 
 class _FakeSessionState(dict):

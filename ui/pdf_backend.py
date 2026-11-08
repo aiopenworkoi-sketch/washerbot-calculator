@@ -22,7 +22,7 @@ from reportlab.platypus import (
 )
 
 from ui.report_text import humanize_report_type
-from ui.theme_tokens import BRAND, is_light
+from ui.theme_palette import BRAND, is_light
 
 
 def _pdf_palette() -> dict[str, str]:
