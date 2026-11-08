@@ -10,7 +10,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from data.catalogs import REGIONS, WASHER_CATALOG
 from domain.results import ProResult
+from finance.taxes import TAX_REGIMES_LABELS
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F3350")
 _HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
@@ -63,9 +65,9 @@ def build_pro_excel_bytes(res: ProResult) -> bytes:
         ("Маржа чистая", res.margin_net, _PCT),
         ("CAPEX, ₽", res.capex_total, _MONEY),
         ("Собственные средства, ₽", res.own_funds, _MONEY),
-        ("Регион", p.region_key, "@"),
+        ("Регион", REGIONS[p.region_key].name, "@"),
         ("Горизонт, мес", p.horizon_months, "0"),
-        ("Модель", p.model_code, "@"),
+        ("Модель", WASHER_CATALOG[p.model_code].name, "@"),
         ("НВ на ЦСВ", str(bool(getattr(p, "nv_norm_enabled", False))), "@"),
         ("Сверхнорматив", str(bool(getattr(p, "nv_over_enabled", False))), "@"),
         (
@@ -125,7 +127,7 @@ def build_pro_excel_bytes(res: ProResult) -> bytes:
         ("Тариф водоотведения, ₽/м³", getattr(p, "water_sewage_override", None) or "регион"),
         ("Тариф электроэнергии, ₽/кВт·ч", getattr(p, "elec_price_override", None) or "регион"),
         ("Рециклинг воды, %", float(p.eco_water_recycle_pct)),
-        ("Налоговый режим", p.tax_regime),
+        ("Налоговый режим", TAX_REGIMES_LABELS.get(p.tax_regime, p.tax_regime)),
         ("Ставка кредита", float(p.credit_rate_annual)),
         ("Ставка дисконтирования", 0.18),
         ("НВ на ЦСВ (0,5)", bool(getattr(p, "nv_norm_enabled", False))),

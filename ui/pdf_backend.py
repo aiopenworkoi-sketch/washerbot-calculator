@@ -22,6 +22,32 @@ from reportlab.platypus import (
 )
 
 from ui.report_text import humanize_report_type
+from ui.theme_tokens import BRAND, is_light
+
+
+def _pdf_palette() -> dict[str, str]:
+    """Палитра PDF под активную тему интерфейса."""
+    if is_light():
+        return {
+            "bg": "#FFFFFF",
+            "title": "#0B2545",
+            "text": "#0F172A",
+            "muted": "#64748B",
+            "muted2": "#94A3B8",
+            "accent": "#13315C",
+            "head": "#F1F5F9",
+            "border": "#E2E8F0",
+        }
+    return {
+        "bg": BRAND["bg"],
+        "title": "#FFFFFF",
+        "text": BRAND["text"],
+        "muted": BRAND["muted"],
+        "muted2": BRAND["muted"],
+        "accent": BRAND["accent"],
+        "head": BRAND["surface2"],
+        "border": "#24344F",
+    }
 
 _FONT_NAME = "WasherBotPDF"
 _FONT_BOLD = "WasherBotPDF-Bold"
@@ -54,6 +80,7 @@ def _register_fonts() -> tuple[str, str]:
 
 def pdf_styles() -> dict[str, ParagraphStyle]:
     body_font, bold_font = _register_fonts()
+    P = _pdf_palette()
     base = getSampleStyleSheet()
     return {
         "title": ParagraphStyle(
@@ -62,7 +89,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=bold_font,
             fontSize=16,
             leading=20,
-            textColor=colors.HexColor("#0b2545"),
+            textColor=colors.HexColor(P["title"]),
             spaceAfter=6,
         ),
         "subtitle": ParagraphStyle(
@@ -71,7 +98,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=body_font,
             fontSize=10,
             leading=13,
-            textColor=colors.HexColor("#64748b"),
+            textColor=colors.HexColor(P["muted"]),
             spaceAfter=4,
         ),
         "meta": ParagraphStyle(
@@ -80,7 +107,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=body_font,
             fontSize=8,
             leading=10,
-            textColor=colors.HexColor("#94a3b8"),
+            textColor=colors.HexColor(P["muted2"]),
             spaceAfter=10,
         ),
         "section": ParagraphStyle(
@@ -89,7 +116,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=bold_font,
             fontSize=12,
             leading=15,
-            textColor=colors.HexColor("#13315c"),
+            textColor=colors.HexColor(P["accent"]),
             spaceBefore=10,
             spaceAfter=6,
         ),
@@ -99,7 +126,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=body_font,
             fontSize=9,
             leading=12,
-            textColor=colors.HexColor("#0f172a"),
+            textColor=colors.HexColor(P["text"]),
             spaceAfter=4,
         ),
         "bullet": ParagraphStyle(
@@ -111,6 +138,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             leftIndent=12,
             bulletIndent=0,
             spaceAfter=3,
+            textColor=colors.HexColor(P["text"]),
         ),
         "disclaimer": ParagraphStyle(
             "WBDisclaimer",
@@ -118,7 +146,7 @@ def pdf_styles() -> dict[str, ParagraphStyle]:
             fontName=body_font,
             fontSize=8,
             leading=10,
-            textColor=colors.HexColor("#64748b"),
+            textColor=colors.HexColor(P["muted"]),
             spaceAfter=3,
         ),
     }
@@ -154,6 +182,7 @@ def pdf_table(
     col_widths: Sequence[float] | None = None,
 ) -> Table:
     body_font, bold_font = _register_fonts()
+    P = _pdf_palette()
     # Ячейки оборачиваем в Paragraph: иначе reportlab рисует строку одной линией
     # и длинный текст вылезает за колонку/страницу.
     cell_style = ParagraphStyle(
@@ -164,11 +193,13 @@ def pdf_table(
         wordWrap="CJK",
         spaceAfter=0,
         spaceBefore=0,
+        textColor=colors.HexColor(P["text"]),
     )
     head_style = ParagraphStyle(
         "WBHead",
         parent=cell_style,
         fontName=bold_font,
+        textColor=colors.HexColor(P["title"]),
     )
 
     def _cell(value: str, *, header: bool = False) -> Paragraph:
@@ -188,9 +219,9 @@ def pdf_table(
             [
                 ("FONTNAME", (0, 0), (-1, -1), body_font),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e2e8f0")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(P["head"])),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor(P["text"])),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor(P["border"])),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
@@ -204,9 +235,9 @@ def pdf_table(
 
 def _cover_logo() -> list:
     """Логотип на обложке; пустой список, если файла нет."""
-    from ui.branding import document_logo_path
+    from ui.branding import LOGO_LIGHT_PATH, document_logo_path
 
-    path = document_logo_path()
+    path = LOGO_LIGHT_PATH if not is_light() else document_logo_path()
     if path is None:
         return []
     try:
@@ -254,6 +285,17 @@ def pdf_cover_block(
     return flowables
 
 
+def _paint_page_background(canvas, doc) -> None:
+    """Тёмный фон страницы для тёмной темы."""
+    if is_light():
+        return
+    palette = _pdf_palette()
+    canvas.saveState()
+    canvas.setFillColor(colors.HexColor(palette["bg"]))
+    canvas.rect(0, 0, A4[0], A4[1], stroke=0, fill=1)
+    canvas.restoreState()
+
+
 def build_pdf_bytes(flowables: Iterable) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -265,7 +307,11 @@ def build_pdf_bytes(flowables: Iterable) -> bytes:
         bottomMargin=16 * mm,
         title="WasherBot Report",
     )
-    doc.build(list(flowables))
+    doc.build(
+        list(flowables),
+        onFirstPage=_paint_page_background,
+        onLaterPages=_paint_page_background,
+    )
     content = buffer.getvalue()
     if not content.startswith(b"%PDF-"):
         raise RuntimeError("PDF generation failed: invalid PDF header")

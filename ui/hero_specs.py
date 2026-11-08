@@ -114,7 +114,7 @@ def build_pro_executive_hero_spec(res: ProResult) -> ExecutiveHeroSpec:
         fourth = HeroMetricSpec(
             "Диапазон окупаемости",
             f"{optim_label} — {format_kpi_payback(res.payback_pessim)}",
-            "опт. — песс.",
+            "от оптимистичного к пессимистичному",
         )
     else:
         fourth = HeroMetricSpec(

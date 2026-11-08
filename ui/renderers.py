@@ -121,10 +121,14 @@ PLOTLY_PRESENTATION_CONFIG: dict = {
 
 
 def style_plotly(fig: go.Figure, height: int = 400, title: str = "") -> go.Figure:
-    """Применяет тёмный investor/demo стиль к графику."""
-    grid_color = "rgba(42, 52, 65, 0.42)"
+    """Применяет стиль графика под активную тему."""
+    from ui.theme_tokens import is_light, rgba
+
+    light = is_light()
+    grid_color = BRAND["chart_grid"]
+    legend_bg = rgba(BRAND["card"], 0.55 if light else 0.55)
     layout_kwargs = dict(
-        template="plotly_dark",
+        template="plotly_dark" if not light else "plotly_white",
         paper_bgcolor=BRAND["bg2"],
         plot_bgcolor=BRAND["bg2"],
         font=dict(
@@ -135,7 +139,7 @@ def style_plotly(fig: go.Figure, height: int = 400, title: str = "") -> go.Figur
         height=height,
         margin=dict(l=48, r=24, t=44 if title else 28, b=48),
         legend=dict(
-            bgcolor="rgba(17,24,39,0.55)",
+            bgcolor=legend_bg,
             bordercolor=BRAND["border"],
             borderwidth=0,
             font=dict(color=BRAND["text"], size=12),

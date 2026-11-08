@@ -85,8 +85,8 @@ def build_executive_verdict_spec(res: ProResult) -> ExecutiveVerdictSpec:
 
     if should_render_pessimistic_payback_success(res):
         bullets.append(
-            f"Диапазон окупаемости: {format_kpi_payback(res.payback_pessim)} "
-            f"(песс.) — {format_kpi_payback(res.payback_optim)} (опт.)"
+            f"Диапазон окупаемости: от {format_kpi_payback(res.payback_optim)} (оптимистично) "
+            f"до {format_kpi_payback(res.payback_pessim)} (пессимистично)"
         )
     elif should_render_pessimistic_payback_warning(res):
         bullets.append(
@@ -160,7 +160,7 @@ def render_scenario_cards_html(cards: Tuple[ScenarioCardSpec, ...]) -> str:
             f'<span class="wb-scenario-card-value">{card.payback_text}</span>'
             f"</div>"
             f'<div class="wb-scenario-card-metric">'
-            f'<span class="wb-scenario-card-kicker">Накопл. CF</span>'
+            f'<span class="wb-scenario-card-kicker">Накопленный поток</span>'
             f'<span class="wb-scenario-card-value">{card.cumulative_text}</span>'
             f"</div>"
             f'<div class="wb-scenario-card-factor">Трафик {card.factor_label}</div>'

@@ -94,7 +94,7 @@ def build_pro_assumption_snapshot(res: ProResult) -> AssumptionSnapshotSpec:
         AssumptionRowSpec(
             "CAPEX / собственные",
             f"{fmt_money_compact(res.capex_total)} / {fmt_money_compact(res.own_funds)}",
-            "единовременные инвестиции и equity",
+            "разовые вложения и собственные средства",
         ),
         AssumptionRowSpec(
             "Сценарии трафика",
@@ -242,9 +242,8 @@ def render_assumption_snapshot_html(spec: AssumptionSnapshotSpec) -> str:
     )
     not_covered = (
         '<p class="wb-assumption-note" style="margin-top:10px">'
-        '<b>Что не учтено:</b> налог на имущество и землю, взносы ИП «за себя», '
-        'терминальная стоимость, инфляция тарифов. Тарифы и нормативы — на 2026 год; '
-        'уточняются по счёту водоканала и энергосбыта.'
+        '<b>Что не учтено:</b> инфляция тарифов, региональные льготы, НДС к вычету на ОСНО. '
+        'Тарифы и нормативы — на 2026 год; уточняются по счёту водоканала и энергосбыта.'
         '</p>'
     )
     return (
