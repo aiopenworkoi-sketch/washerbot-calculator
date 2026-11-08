@@ -59,7 +59,7 @@ from ui.renderers import (
     render_mode_switcher,
 )
 from ui.theme_switch import init_theme, render_theme_toggle
-from ui.light_theme_css import build_light_shell_css
+from ui.light_shell_css import build_light_shell_css
 try:
     from ui.theme_palette import is_light, rgba
 except Exception:  # pragma: no cover - аварийный режим
